@@ -13,7 +13,8 @@
   :scm {:name "git" :url "https://github.com/BrunoBonacci/rdt.git"}
 
   :dependencies [[org.clojure/clojure "1.11.0-alpha1"]
-                 [com.brunobonacci/where "0.5.6"]]
+                 [com.brunobonacci/where "0.5.6"]
+                 [potemkin "0.4.5"]]
 
   :global-vars {*warn-on-reflection* true}
 
