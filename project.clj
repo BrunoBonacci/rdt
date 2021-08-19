@@ -13,6 +13,7 @@
   :scm {:name "git" :url "https://github.com/BrunoBonacci/rdt.git"}
 
   :dependencies [[org.clojure/clojure "1.11.0-alpha1"]
+                 [midje "1.10.3"]
                  [com.brunobonacci/where "0.5.6"]
                  [potemkin "0.4.5"]]
 
@@ -21,8 +22,7 @@
   :jvm-opts ["-server" "-Djdk.attach.allowAttachSelf"]
 
   :profiles {:dev {:source-paths ["dev"]
-                   :dependencies [[midje "1.10.3"]
-                                  [org.clojure/test.check "1.1.0"]
+                   :dependencies [[org.clojure/test.check "1.1.0"]
                                   [criterium "0.4.6"]
                                   [org.slf4j/slf4j-log4j12 "1.7.31"]
                                   [com.clojure-goes-fast/clj-async-profiler "0.5.0"]

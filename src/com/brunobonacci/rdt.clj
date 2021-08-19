@@ -65,11 +65,11 @@
   ([l1 l2]
    (zip-lists nil l1 l2))
   ([empty-value l1 l2]
-   (let [l1 (concat l1 (repeat ::empty-value))
-         l2 (concat l2 (repeat ::empty-value))]
+   (let [l1 (concat l1 (repeat :rdt/<missing-value>))
+         l2 (concat l2 (repeat :rdt/<missing-value>))]
      (->> (map vector l1 l2)
-       (take-while (partial some #(not= ::empty-value %)))
-       (map (fn [e] (mapv #(if (= ::empty-value %) empty-value %) e)))))))
+       (take-while (partial some #(not= :rdt/<missing-value> %)))
+       (map (fn [e] (mapv #(if (= :rdt/<missing-value> %) empty-value %) e)))))))
 
 
 
@@ -77,7 +77,7 @@
   [m keys]
   (into {}
     (for [k keys]
-      [k (get m k ::not-found)])))
+      [k (get m k :rdt/<missing-value>)])))
 
 
 
@@ -108,8 +108,8 @@
        (match-error rpattern rvalue ppattern pvalue pattern value))
 
      (and (sequential? pattern) (sequential? value))
-     (->> (zip-lists ::not-found pattern value)
-       (filter (where first not= ::not-found))
+     (->> (zip-lists :rdt/<missing-value> pattern value)
+       (filter (where first not= :rdt/<missing-value>))
        (map (partial apply subset-matcher rpattern rvalue pattern value))
        (every? true?))
 
@@ -164,11 +164,13 @@
 
 
 (defmacro repl-test
-  [& body]
-  (let [body (apply-fuzzy-checker body)]
-    `(m/facts "REPL tests"
+  [& [doc & facts :as body]]
+  (let [test-name (if (string? doc) doc "REPL tests")
+        tests (if (string? doc) facts body)
+        tests (apply-fuzzy-checker tests)]
+    `(m/facts ~test-name
        (def->let-flat
-         ~@body))))
+         ~@tests))))
 
 
 (potemkin/import-vars
@@ -182,7 +184,7 @@
 
 (comment
 
-  (repl-test
+  (repl-test "sample test"
 
     :ok
     (def foo 1)
