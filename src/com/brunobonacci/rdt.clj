@@ -97,6 +97,12 @@
 
 
 
+(defn- regex?
+  [pattern]
+  (= java.util.regex.Pattern (type pattern)))
+
+
+
 ;; TODO: add regex->regex, array->array, regex->string, fn->val
 (defn- subset-matcher
   ([pattern value]
@@ -124,6 +130,14 @@
        (map (partial subset-matcher rpattern rvalue pattern value) pattern)
        (every? true?))
 
+     (and (fn? pattern) (not (fn? value)))
+     (or (pattern value)
+       (match-error rpattern rvalue ppattern pvalue pattern value))
+
+     (and (regex? pattern) (string? value))
+     (or (boolean (re-matches pattern value))
+       (match-error rpattern rvalue ppattern pvalue pattern value))
+
      :else
      (match-error rpattern rvalue ppattern pvalue pattern value))))
 
@@ -137,7 +151,7 @@
       (catch Exception x
         (if (= ::match-failed (:error-type (ex-data x)))
           (checking/as-data-laden-falsehood
-            {:notes [(ex-message x) (with-out-str (clojure.pprint/pprint (ex-data x)))]})
+            {:notes [(ex-message x) #_(with-out-str (clojure.pprint/pprint (ex-data x)))]})
           (throw x))))))
 
 
