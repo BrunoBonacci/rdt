@@ -1,5 +1,5 @@
 # RDT - REPL-Driven tests
-[![Clojars Project](https://img.shields.io/clojars/v/com.brunobonacci/rdt.svg)](https://clojars.org/com.brunobonacci/rdt)  [![cljdoc badge](https://cljdoc.org/badge/com.brunobonacci/rdt)](https://cljdoc.org/d/com.brunobonacci/rdt/CURRENT) [![com.brunobonacci](https://circleci.com/gh/com.brunobonacci/rdt.svg?style=shield)](https://circleci.com/gh/com.brunobonacci/rdt) ![last-commit](https://img.shields.io/github/last-commit/BrunoBonacci/rdt.svg)
+[![Clojars Project](https://img.shields.io/clojars/v/com.brunobonacci/rdt.svg)](https://clojars.org/com.brunobonacci/rdt)  [![cljdoc badge](https://cljdoc.org/badge/com.brunobonacci/rdt)](https://cljdoc.org/d/com.brunobonacci/rdt/CURRENT) [![CircleCI](https://circleci.com/gh/BrunoBonacci/rdt/tree/main.svg?style=svg)](https://circleci.com/gh/BrunoBonacci/rdt/tree/main) ![last-commit](https://img.shields.io/github/last-commit/BrunoBonacci/rdt.svg)
 
 RDT is a REPL-Driven Test library for Clojure. It enables you to write
 tests that look like REPL sessions. It makes use of pattern matching and
