@@ -36,6 +36,7 @@
 
 
 (defmacro def->let-flat
+  {:no-doc true}
   [& body]
   (let [def? (where [:and [list? :is? true] [first :is? 'def]])
         dummy (gensym "_val_")
@@ -144,6 +145,9 @@
 
 
 (defn fuzzy-checker
+  "A checker for the right-hand-side of the arrow which only checks the keys and items
+   in the pattern and accepts additional keys without failing.
+   See README.md for more info."
   [expected]
   (fn [actual]
     (try
@@ -178,6 +182,15 @@
 
 
 (defmacro repl-test
+  "A top level macro to wrap your test assertions.
+
+  Example:
+
+  ``` clojure
+  (repl-test \"testing addition\"
+    (reduce + (range 1000)) => 499500)
+  ```
+  "
   [& [doc & facts :as body]]
   (let [test-name (if (string? doc) doc "REPL tests")
         tests (if (string? doc) facts body)
@@ -185,6 +198,7 @@
     `(m/facts ~test-name
        (def->let-flat
          ~@tests))))
+
 
 
 (potemkin/import-vars
