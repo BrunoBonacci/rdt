@@ -38,13 +38,16 @@
 (defmacro def->let-flat
   {:no-doc true}
   [& body]
-  (let [def? (where [:and [list? :is? true] [first :is? 'def]])
+  (let [def?  (where [:and [list? :is? true] [first :is? 'def]])
+        defn? (where [:and [list? :is? true] [first :is? 'defn]])
         dummy (gensym "_val_")
-        bindings (mapcat (fn [sexpr]
-                           (if (def? sexpr)
-                             (rest sexpr)
-                             [dummy sexpr]
-                             ))body)
+        bindings (mapcat
+                   (fn [sexpr]
+                     (cond
+                       (def?  sexpr) (rest sexpr)
+                       (defn? sexpr) (let [[sym & fundef] (rest sexpr)] [sym (cons `fn fundef)])
+                       :else [dummy sexpr]))
+                   body)
         ]
     `(let ~(vec bindings)
        ~dummy)))

@@ -110,6 +110,34 @@ Behind the scenes, RDT converts the test from the second form to the
 first form, so the two tests are equivalent, all the `def` are valid
 within the scope of `repl-test` only.
 
+For example, the following snippet illustrates this point.
+
+``` clojure
+
+(repl-test "scoping rules for def and defn"
+
+  (def  a 1)
+  (def  b 2)
+  (defn sum [x y] (+ x y))
+
+  (sum a b) => 3
+
+  (println "a:" a ", b:" b ", sum:" sum)
+  ;; prints:
+  ;; a: 1 , b: 2 , sum: #function[user/eval36636/fn--36637/fn--36638/sum--36640]
+)
+
+;; `a`, `b` and `sum` do not exists outside of the `repl-test` scope
+;; (println "a:" a ", b:" b ", sum:" sum)
+;; Syntax error
+;; Unable to resolve symbol: a in this context
+
+```
+
+Internally the `def` and `defn` are converted into `let` binding
+thus avoiding the concurrency problems with the use of `def`.
+
+
 ## Usage
 
 In order to use the library add the dependency to your `project.clj`
