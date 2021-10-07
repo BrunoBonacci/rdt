@@ -54,6 +54,24 @@
 
 
 
+(def primitive-arrays #{(Class/forName "[B") ;; bytes
+                        (Class/forName "[S") ;; shorts
+                        (Class/forName "[I") ;; ints
+                        (Class/forName "[J") ;; longs
+                        (Class/forName "[F") ;; floats
+                        (Class/forName "[D") ;; doubles
+                        (Class/forName "[C") ;; chars
+                        (Class/forName "[Z") ;; booleans
+                        (Class/forName "[Ljava.lang.Object;") ;; objects
+                        })
+
+(defn primitive-array?
+  "Returns true if x is a primitive array."
+  [x]
+  (-> (primitive-arrays (type x)) boolean))
+
+
+
 (defn- atomic-value?
   "Returns true if `value` is atomic, false otherwise."
   [value]
@@ -112,6 +130,9 @@
      (and (atomic-value? pattern) (atomic-value? value))
      (or (= pattern value)
        (match-error rpattern rvalue ppattern pvalue pattern value))
+
+     (and (sequential? pattern) (primitive-array? value))
+     (subset-matcher rpattern rvalue ppattern pvalue pattern (into [] value))
 
      (and (sequential? pattern) (sequential? value))
      (->> (zip-lists :rdt/<missing-value> pattern value)
