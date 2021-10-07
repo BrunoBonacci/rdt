@@ -129,6 +129,7 @@
    (cond
      (and (atomic-value? pattern) (atomic-value? value))
      (or (= pattern value)
+       (and (number? pattern) (number? value) (== pattern value))
        (match-error rpattern rvalue ppattern pvalue pattern value))
 
      (and (sequential? pattern) (primitive-array? value))

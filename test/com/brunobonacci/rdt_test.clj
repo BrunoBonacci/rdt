@@ -17,6 +17,8 @@
   (subset-matcher nil nil) ==> true
   (subset-matcher 'foo 'foo) ==> true
   (subset-matcher \c \c) ==> true
+  (subset-matcher 1.0 1) ==> true
+  (subset-matcher 1 1.0) ==> true
 
   (subset-matcher [] []) ==> true
   (subset-matcher [1] [1]) ==> true
