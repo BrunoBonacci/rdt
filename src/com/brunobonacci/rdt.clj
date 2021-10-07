@@ -68,7 +68,7 @@
 (defn primitive-array?
   "Returns true if x is a primitive array."
   [x]
-  (-> (primitive-arrays (type x)) boolean))
+  (-> x type primitive-arrays boolean))
 
 
 
