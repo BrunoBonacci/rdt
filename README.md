@@ -204,7 +204,7 @@ The fuzzy match work as follow:
   )
 ```
 
-#### Lists and Vectors are matched on the given prefix
+#### Lists, Vectors and Primitive arrays are matched on the given prefix
 
 ``` clojure
 (repl-test
@@ -219,6 +219,12 @@ The fuzzy match work as follow:
   (list 2)       => '(1)  ;; false, test fails
   (list 1 2)     => '(1 3);; false, test fails, (1 3) is not a prefix of (1 2)
   (list 1 2 3)   => '(1 2);; true, (1 2) is a prefix of (1 2 3)
+
+  (byte-array 0)       => []    ;; true
+  (byte-array [1])     => [1]   ;; true
+  (byte-array [2])     => [1]   ;; false, test fails
+  (byte-array [1 2])   => [1 3] ;; false, test fails, [1 3] is not a prefix of [1 2]
+  (byte-array [1 2 3]) => [1 2] ;; true, [1 2] is a prefix of [1 2 3]
 )
 ```
 
