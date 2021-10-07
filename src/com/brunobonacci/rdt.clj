@@ -55,13 +55,9 @@
 
 
 (defn- atomic-value?
+  "Returns true if `value` is atomic, false otherwise."
   [value]
-  (or (nil? value)
-    (boolean? value)
-    (number? value)
-    (keyword? value)
-    (string? value)
-    (symbol? value)))
+  (some #(% value) [nil? boolean? number? keyword? string? symbol? char?]))
 
 
 

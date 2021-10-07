@@ -16,6 +16,7 @@
   (subset-matcher "foo" "foo") ==> true
   (subset-matcher nil nil) ==> true
   (subset-matcher 'foo 'foo) ==> true
+  (subset-matcher \c \c) ==> true
 
   (subset-matcher [] []) ==> true
   (subset-matcher [1] [1]) ==> true
