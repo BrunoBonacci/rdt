@@ -128,3 +128,49 @@
     {:l [number? {:foo odd? :bar #{1 2}}]}
     {:l [1 {:foo 1 :bar #{1 2 3}}] :z 4}) ==> true
   )
+
+
+
+(repl-test "testing repl-test macro"
+
+  (macroexpand-1
+    '(repl-test
+       (+ 1 1) => 2))
+  ==> '(midje.sweet/facts "REPL tests"
+        (com.brunobonacci.rdt/def->let-flat
+          (+ 1 1)
+          =>
+          (com.brunobonacci.rdt/fuzzy-checker 2)))
+
+
+  (macroexpand-1
+    '(repl-test "adding test name"
+       (+ 1 1) => 2))
+  ==> '(midje.sweet/facts "adding test name"
+        (com.brunobonacci.rdt/def->let-flat
+          (+ 1 1)
+          =>
+          (com.brunobonacci.rdt/fuzzy-checker 2)))
+
+
+
+  (macroexpand-1
+    '(repl-test {:labels [:foo :bar]} "adding labels "
+       (+ 1 1) => 2))
+  ==> '(midje.sweet/facts "adding labels " :foo :bar
+        (com.brunobonacci.rdt/def->let-flat
+          (+ 1 1)
+          =>
+          (com.brunobonacci.rdt/fuzzy-checker 2)))
+
+
+  (macroexpand-1
+    '(repl-test "different checkers"
+       [1 2 3 4] =>  [1 2]
+       [1 2 3 4] ==> [1 2 3 4]))
+  => '(midje.sweet/facts "different checkers"
+       (com.brunobonacci.rdt/def->let-flat
+         [1 2 3 4] => (com.brunobonacci.rdt/fuzzy-checker [1 2])
+         [1 2 3 4] => [1 2 3 4]))
+
+  )

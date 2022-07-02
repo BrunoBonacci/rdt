@@ -351,6 +351,51 @@ which behaves like Midje `=>` arrow.
   )
 ```
 
+
+## Test labels and test filters
+
+If you want selectively run or skip tests you can give them labels and
+use the labels to filter or skip some test.
+
+``` Clojure
+
+(repl-test {:labels [:core]} "important core tests"
+
+    ;; things that you must always run
+)
+
+(repl-test {:labels [:slow]} "compute pi to 1 trillion decimal values"
+
+    ;; compute pi
+)
+
+
+(repl-test {:labels [:core :integration]} "Check DB transaction isolation "
+
+    ;; start DB container
+    ;; connect to DB
+    ;; run transactions
+    ;; verify isonlation
+    ;; shutdown services
+)
+```
+
+Then you can selectively run the tests you want or skip them.
+For example:
+
+
+``` bash
+# run only :core tests
+lein midje :filter core
+
+# skip :slow tests
+lein midje :filter -slow
+
+
+# run :core tests, but skip integration
+lein midje :filter core -integration
+```
+
 ## License
 
 Copyright © 2021 Bruno Bonacci - Distributed under the [Apache License v2.0](http://www.apache.org/licenses/LICENSE-2.0)

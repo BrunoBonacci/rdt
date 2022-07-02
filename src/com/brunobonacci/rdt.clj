@@ -54,16 +54,19 @@
 
 
 
-(def primitive-arrays #{(Class/forName "[B") ;; bytes
-                        (Class/forName "[S") ;; shorts
-                        (Class/forName "[I") ;; ints
-                        (Class/forName "[J") ;; longs
-                        (Class/forName "[F") ;; floats
-                        (Class/forName "[D") ;; doubles
-                        (Class/forName "[C") ;; chars
-                        (Class/forName "[Z") ;; booleans
-                        (Class/forName "[Ljava.lang.Object;") ;; objects
-                        })
+(def primitive-arrays
+  #{(Class/forName "[B")                     ;; bytes
+    (Class/forName "[S")                     ;; shorts
+    (Class/forName "[I")                     ;; ints
+    (Class/forName "[J")                     ;; longs
+    (Class/forName "[F")                     ;; floats
+    (Class/forName "[D")                     ;; doubles
+    (Class/forName "[C")                     ;; chars
+    (Class/forName "[Z")                     ;; booleans
+    (Class/forName "[Ljava.lang.Object;")    ;; objects
+    })
+
+
 
 (defn primitive-array?
   "Returns true if x is a primitive array."
@@ -213,10 +216,14 @@
   ```
   "
   [& [doc & facts :as body]]
-  (let [test-name (if (string? doc) doc "REPL tests")
+  (let [cfg?   (map? doc)
+        cfg   (if cfg? doc {})
+        doc   (if cfg? (first facts) doc)
+        facts (if cfg? (rest facts) facts)
+        test-name (if (string? doc) doc "REPL tests")
         tests (if (string? doc) facts body)
         tests (apply-fuzzy-checker tests)]
-    `(m/facts ~test-name
+    `(m/facts ~test-name ~@(:labels cfg)
        (def->let-flat
          ~@tests))))
 
@@ -250,6 +257,19 @@
 
     (println "end")
     )
+
+
+  (repl-test {:labels [:foo]}
+    "sample test with labels"
+
+    :ok
+    (def foo 1)
+    (inc foo)
+    => 2
+
+    (println "end")
+    )
+
 
 
   (defn f [] [2 {:a 1 :b 2 :c 3} 3 4])
