@@ -215,14 +215,12 @@
     (reduce + (range 1000)) => 499500)
   ```
   "
-  [& [doc & facts :as body]]
-  (let [cfg?   (map? doc)
-        cfg   (if cfg? doc {})
-        doc   (if cfg? (first facts) doc)
-        facts (if cfg? (rest facts) facts)
-        test-name (if (string? doc) doc "REPL tests")
-        tests (if (string? doc) facts body)
-        tests (apply-fuzzy-checker tests)]
+  [& forms]
+  (let [cfg       (if (map?    (first forms)) (first forms) {})
+        forms     (if (map?    (first forms)) (rest forms) forms)
+        test-name (if (string? (first forms)) (first forms) "REPL tests")
+        tests     (if (string? (first forms)) (rest forms) forms)
+        tests     (apply-fuzzy-checker tests)]
     `(m/facts ~test-name ~@(:labels cfg)
        (def->let-flat
          ~@tests))))
