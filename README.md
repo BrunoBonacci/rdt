@@ -144,10 +144,10 @@ In order to use the library add the dependency to your `project.clj`
 
 ``` clojure
 ;; Leiningen project
-[com.brunobonacci/rdt "0.2.0"]
+[com.brunobonacci/rdt "0.3.0"]
 
 ;; deps.edn format
-{:deps { com.brunobonacci/rdt {:mvn/version "0.2.0"}}}
+{:deps { com.brunobonacci/rdt {:mvn/version "0.3.0"}}}
 ```
 
 Current version:
