@@ -278,3 +278,127 @@
     )
 
   )
+
+
+
+
+
+
+
+
+
+(comment
+
+  (defn -wrap-statement
+  [& forms]
+  `(if (second ~'_last) ~'_last (try [(do ~@forms)] (catch Exception x# [nil x#]))))
+
+  (defmacro fact->checks
+    {:no-doc true}
+    [& body]
+    (let [_last (gensym "_val_")
+          def?  (where [:and [list? :is? true] [first :is? 'def]])
+          defn? (where [:and [list? :is? true] [first :is? 'defn]])
+          chkfn (fn [test] (cond (nil? test) nil
+                                 (= '==> test) (fn [expected] (fn [actual] (= expected actual)))
+                                 :else `fuzzy-checker))]
+      (->> (concat body [:rdt/void])
+        ;; separate statements
+        (partition 3 1 '(:rdt/void :rdt/void :rdt/void))
+        (reduce (fn [state [left test right :as triplet]]
+                  (cond
+                    (pos? (:drop state)) (update state :drop dec)
+                    (#{'=> '==>} test)   (-> state (update :forms conj triplet) (update :drop + 2))
+                    :else                (update state :forms conj [left])))
+          {:forms [] :drop 0})
+        ;; did I miss something?
+        (#(if (pos? (:drop %))
+            (throw (ex-info "Missing value after arrows" {:form (last (:forms %))}))
+            %))
+        ;;turn statements into checkable functions
+        :forms
+        (mapv (fn [[left test right :as triplet]]
+                (let [checkable? (not (nil? test))]
+                  {:form (list `quote (vec triplet))
+                   :checkable? checkable?
+                   :def?  (def? left)
+                   :defn? (defn? left)
+                   :checking-funciton (chkfn test)
+                   :statement
+                   (cond
+                     (def? left)
+                     [[(second left) :as '_last] (-wrap-statement (last left))]
+
+                     (defn? left)
+                     [[(second left) :as '_last] (-wrap-statement (cons `fn (rest left)))]
+
+                     checkable?
+                     ['_last (-wrap-statement `((~(chkfn test) ~right) ~left))]
+
+                     :else ;; statement
+                     ['_last (-wrap-statement left)])})
+                ))
+        (cons {:statement ['_last nil]})
+        (mapcat :statement)
+        (apply vector)
+        (list)
+        (cons `let)
+
+        )))
+
+
+  (def t
+    (fact->checks
+      (defn foo [n] (* n 2))))
+
+  (-> ((-> t first :fn) {}) first second (#(% 5)))
+
+  (def t
+    (fact->checks
+      (def foo 1)))
+
+
+  (fact->checks
+    (+ 1 2) ==> 3)
+
+  (def t
+    (fact->checks
+      (+ 1 2) ==> 3))
+
+  ((-> t first :fn) {})
+
+
+  (fact->checks
+    :ok
+    (def foo 1)
+    (def bar 2)
+
+    (println foo)
+    (println bar)
+
+    (+ foo bar)  => 3
+
+    (def foo 2)
+    (println (+ foo bar))
+
+    (assoc {} :foo (+ foo bar) :bar 22)
+    => {:foo 4 }
+
+    (println "end")
+
+    )
+
+  ;;[?binding :as _last]  (if (second _last) _last (try [ ?form ] (catch Exception x [nil x])))
+
+  (let [_last nil
+        [foo :as _last]  (if (second _last) _last (try [1] (catch Exception x [nil x])))
+        [bar :as _last]  (if (second _last) _last (try [2] (catch Exception x [nil x])))
+        _last (if (second _last) _last (try [(println foo)] (catch Exception x [nil x])))
+        _last (if (second _last) _last (try [(println bar)] (catch Exception x [nil x])))
+        _last (if (second _last) _last (try [(+ foo bar)] (catch Exception x [nil x])))
+        [foo :as _last]  (if (second _last) _last (try [(/ 2 0)] (catch Exception x [nil x])))
+        _last (if (second _last) _last (try [(println (+ foo bar))] (catch Exception x [nil x])))]
+    _last)
+
+
+  )
