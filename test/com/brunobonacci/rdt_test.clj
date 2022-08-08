@@ -137,7 +137,7 @@
     '(repl-test
        (+ 1 1) => 2))
   ==> '(midje.sweet/facts "REPL tests"
-        (com.brunobonacci.rdt/def->let-flat
+        (com.brunobonacci.rdt.internal/fact->checks
           (+ 1 1)
           =>
           (com.brunobonacci.rdt/fuzzy-checker 2)))
@@ -147,7 +147,7 @@
     '(repl-test "adding test name"
        (+ 1 1) => 2))
   ==> '(midje.sweet/facts "adding test name"
-        (com.brunobonacci.rdt/def->let-flat
+        (com.brunobonacci.rdt.internal/fact->checks
           (+ 1 1)
           =>
           (com.brunobonacci.rdt/fuzzy-checker 2)))
@@ -155,10 +155,10 @@
 
 
   (macroexpand-1
-    '(repl-test {:labels [:foo :bar]} "adding labels "
+    '(repl-test {:labels [:foo :bar]} "adding labels"
        (+ 1 1) => 2))
-  ==> '(midje.sweet/facts "adding labels " :foo :bar
-        (com.brunobonacci.rdt/def->let-flat
+  ==> '(midje.sweet/facts "adding labels" :foo :bar
+        (com.brunobonacci.rdt.internal/fact->checks
           (+ 1 1)
           =>
           (com.brunobonacci.rdt/fuzzy-checker 2)))
@@ -169,7 +169,7 @@
        [1 2 3 4] =>  [1 2]
        [1 2 3 4] ==> [1 2 3 4]))
   => '(midje.sweet/facts "different checkers"
-       (com.brunobonacci.rdt/def->let-flat
+       (com.brunobonacci.rdt.internal/fact->checks
          [1 2 3 4] => (com.brunobonacci.rdt/fuzzy-checker [1 2])
          [1 2 3 4] => [1 2 3 4]))
 

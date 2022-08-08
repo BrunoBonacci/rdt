@@ -1,33 +1,6 @@
-(ns com.brunobonacci.rdt
+(ns com.brunobonacci.rdt.checkers
   (:require [where.core :refer [where]]
-            [midje.sweet :as m]
-            [midje.checking.core :as checking]
-            [clojure.zip :as zip]
-            [clojure.pprint]
-            [potemkin]
-            [com.brunobonacci.rdt.internal :as i]))
-
-
-
-
-
-(defmacro def->let-flat
-  {:no-doc true}
-  [& body]
-  (let [def?  (where [:and [list? :is? true] [first :is? 'def]])
-        defn? (where [:and [list? :is? true] [first :is? 'defn]])
-        dummy (gensym "_val_")
-        bindings (mapcat
-                   (fn [sexpr]
-                     (cond
-                       (def?  sexpr) (rest sexpr)
-                       (defn? sexpr) (let [[sym & fundef] (rest sexpr)] [sym (cons `fn fundef)])
-                       :else [dummy sexpr]))
-                   body)
-        ]
-    `(let ~(vec bindings)
-       ~dummy)))
-
+            [midje.checking.core :as checking]))
 
 
 (def primitive-arrays
@@ -149,9 +122,9 @@
    in the pattern and accepts additional keys without failing.
    See README.md for more info."
   [expected]
-  (fn [actual]
+  (fn [actual*]
     (try
-      (subset-matcher expected actual)
+      (subset-matcher expected (actual*))
       (catch Exception x
         (if (= ::match-failed (:error-type (ex-data x)))
           (checking/as-data-laden-falsehood
@@ -160,97 +133,10 @@
 
 
 
-;;
-;; clojure zippers are awesome!
-;;
-(defn- apply-fuzzy-checker
-  [forms]
-  (loop [z (zip/seq-zip forms)]
-    (if (identical? z (zip/next z))
-      (zip/root z)
-      (if (zip/branch? z)
-        (recur (zip/next z))
-        (recur (cond
-                 (= (zip/node z) '==>)
-                 (-> z (zip/edit (fn [v] (if (= v '==>) '=> v))) (zip/next))
-
-                 (= (zip/node z) '=>)
-                 (-> z (zip/next) (zip/edit (fn [v] (list `fuzzy-checker v))) (zip/next))
-
-                 :else (zip/next z)))))))
-
-
-
-(defmacro repl-test
-  "A top level macro to wrap your test assertions.
-
-  Example:
-
-  ``` clojure
-  (repl-test \"testing addition\"
-    (reduce + (range 1000)) => 499500)
-  ```
-  "
-  [& forms]
-  (let [cfg       (if (map?    (first forms)) (first forms) {})
-        forms     (if (map?    (first forms)) (rest forms) forms)
-        test-name (if (string? (first forms)) (first forms) "REPL tests")
-        tests     (if (string? (first forms)) (rest forms) forms)
-        tests     (apply-fuzzy-checker tests)]
-    `(m/facts ~test-name ~@(:labels cfg)
-       (i/fact->checks
-         ~@tests))))
-
-
-
-(potemkin/import-vars
-  [midje.sweet
-
-   throws
-   just
-   contains])
-
-
-
-(comment
-
-  (repl-test "sample test"
-
-    :ok
-    (def foo 1)
-    (def bar 2)
-
-    (println foo)
-    (println bar)
-
-    (def foo 2)
-    (println (+ foo bar))
-
-    (assoc {} :foo (+ foo bar) :bar 22)
-    => {:foo 4 }
-
-    (println "end")
-    )
-
-
-  (repl-test {:labels [:foo]}
-    "sample test with labels"
-
-    :ok
-    (def foo 1)
-    (inc foo)
-    => 2
-
-    (println "end")
-    )
-
-
-
-  (defn f [] [2 {:a 1 :b 2 :c 3} 3 4])
-
-  (repl-test
-    (f) => [2 {:a 1 :b 2 }]
-    (f) ==> [2 {:a 1 :b 2 :c 3} 3 4]
-    )
-
-  )
+(defn exact-checker
+  [expected]
+  (fn [actual*]
+    (try
+      (= expected (actual*))
+      (catch Exception x
+        (throw x)))))
