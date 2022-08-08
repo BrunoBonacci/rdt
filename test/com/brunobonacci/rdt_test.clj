@@ -232,3 +232,53 @@
             (println "all done!2"))))
 
   )
+
+
+
+
+
+(repl-test "testing finalizers execution, no headline"
+
+  (def finalizer (atom false))
+
+  (repl-test
+     (+ 1 1) ==> 2
+
+     :rdt/finalize
+     (swap! finalizer (constantly true)))
+
+  @finalizer ==> true
+
+  )
+
+
+
+(repl-test "testing finalizers execution, with headline"
+
+  (def finalizer (atom false))
+
+  (repl-test "testing finalizer"
+     (+ 1 1) ==> 2
+
+     :rdt/finalize
+     (swap! finalizer (constantly true)))
+
+  @finalizer ==> true
+
+  )
+
+
+
+(repl-test "testing finalizers execution, with labels"
+
+  (def finalizer (atom false))
+
+  (repl-test {:labels [:foo]} "testing finalizer"
+     (+ 1 1) ==> 2
+
+     :rdt/finalize
+     (swap! finalizer (constantly true)))
+
+  @finalizer ==> true
+
+)

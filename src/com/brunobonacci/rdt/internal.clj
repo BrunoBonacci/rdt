@@ -113,6 +113,11 @@
     (-statements->executable)
     ((fn [statements]
        `(let ~(vec (mapcat identity (drop-last 1 statements)))
+          ;; finalizer
+          (try ~@final (catch Exception fx#
+                         ;; TODO: use mulog
+                         (println "Failed to execute finalizer due to" (ex-message fx#))))
+          ;; last statement value
           ~(->> statements (take-last 1) first second))))))
 
 
