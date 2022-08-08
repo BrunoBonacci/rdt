@@ -40,11 +40,11 @@
   (let [cfg       (if (map?    (first forms)) (first forms) {})
         forms     (if (map?    (first forms)) (rest forms) forms)
         test-name (if (string? (first forms)) (first forms) "REPL tests")
-        tests     (if (string? (first forms)) (rest forms) forms)
+        forms     (if (string? (first forms)) (rest forms) forms)
+        [tests _ & finals] (partition-by #{:rdt/finalize :rdt/finalise} forms)
         tests     (apply-fuzzy-checker tests)]
     `(m/facts ~test-name ~@(:labels cfg)
-       (i/fact->checks
-         ~@tests))))
+       (i/fact->checks ~tests ~(mapcat identity finals)))))
 
 
 

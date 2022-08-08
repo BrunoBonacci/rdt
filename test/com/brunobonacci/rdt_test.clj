@@ -139,9 +139,12 @@
        (+ 1 1) => 2))
   ==> '(midje.sweet/facts "REPL tests"
          (com.brunobonacci.rdt.internal/fact->checks
-           (+ 1 1)
-           =>
-           (com.brunobonacci.rdt.checkers/fuzzy-checker 2)))
+           ;; test body
+           ((+ 1 1)
+            =>
+            (com.brunobonacci.rdt.checkers/fuzzy-checker 2))
+           ;; finalizer
+           ()))
 
 
   (macroexpand-1
@@ -149,9 +152,12 @@
        (+ 1 1) => 2))
   ==> '(midje.sweet/facts "adding test name"
          (com.brunobonacci.rdt.internal/fact->checks
-           (+ 1 1)
-           =>
-           (com.brunobonacci.rdt.checkers/fuzzy-checker 2)))
+           ;; test body
+           ((+ 1 1)
+            =>
+            (com.brunobonacci.rdt.checkers/fuzzy-checker 2))
+           ;; finalizer
+           ()))
 
 
 
@@ -160,9 +166,12 @@
        (+ 1 1) => 2))
   ==> '(midje.sweet/facts "adding labels" :foo :bar
          (com.brunobonacci.rdt.internal/fact->checks
-           (+ 1 1)
-           =>
-           (com.brunobonacci.rdt.checkers/fuzzy-checker 2)))
+           ;; test body
+           ((+ 1 1)
+            =>
+            (com.brunobonacci.rdt.checkers/fuzzy-checker 2))
+           ;; finalizer
+           ()))
 
 
   (macroexpand-1
@@ -171,7 +180,55 @@
        [1 2 3 4] ==> [1 2 3 4]))
   ==> '(midje.sweet/facts "different checkers"
         (com.brunobonacci.rdt.internal/fact->checks
-          [1 2 3 4] => (com.brunobonacci.rdt.checkers/fuzzy-checker [1 2])
-          [1 2 3 4] => (com.brunobonacci.rdt.checkers/exact-checker [1 2 3 4])))
+           ;; test body
+          ([1 2 3 4] => (com.brunobonacci.rdt.checkers/fuzzy-checker [1 2])
+           [1 2 3 4] => (com.brunobonacci.rdt.checkers/exact-checker [1 2 3 4]))
+          ;; finalizer
+          ()))
+
+  )
+
+
+
+
+
+(repl-test "testing repl-test macro with finalizers"
+
+  (macroexpand-1
+    '(repl-test
+       (+ 1 1) => 2
+       :rdt/finalize
+       (println "all done!")))
+
+  ==> '(midje.sweet/facts "REPL tests"
+         (com.brunobonacci.rdt.internal/fact->checks
+           ;; test body
+           ((+ 1 1)
+            =>
+            (com.brunobonacci.rdt.checkers/fuzzy-checker 2))
+           ;; finalizer
+           ((println "all done!"))))
+
+
+
+  ;; if more than one :rdt/finalize are added it grabs them all
+  (macroexpand-1
+    '(repl-test
+       (+ 1 1) => 2
+       :rdt/finalize
+       (println "all done!")
+       :rdt/finalize
+       (println "all done!2")))
+
+  ==> '(midje.sweet/facts "REPL tests"
+         (com.brunobonacci.rdt.internal/fact->checks
+           ;; test body
+           ((+ 1 1)
+            =>
+            (com.brunobonacci.rdt.checkers/fuzzy-checker 2))
+           ;; finalizer
+           ((println "all done!")
+            :rdt/finalize
+            (println "all done!2"))))
 
   )

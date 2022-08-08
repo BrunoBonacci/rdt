@@ -107,7 +107,7 @@
 
 (defn -fact->checks
   {:no-doc true}
-  [body]
+  [body final]
   (->> body
     (-separate-statements)
     (-statements->executable)
@@ -119,8 +119,8 @@
 
 (defmacro fact->checks
   {:no-doc true}
-  [& body]
-  (-fact->checks body))
+  [body final]
+  (-fact->checks body final))
 
 
 
