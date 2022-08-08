@@ -1,6 +1,7 @@
 (ns com.brunobonacci.rdt.checkers
   (:require [where.core :refer [where]]
-            [midje.checking.core :as checking]))
+            [midje.checking.core :as checking]
+            [clojure.set :as set]))
 
 
 (def primitive-arrays
@@ -94,7 +95,7 @@
        (every? true?))
 
      (and (set? pattern) (set? value))
-     (or (clojure.set/subset? pattern value)
+     (or (set/subset? pattern value)
        (match-error rpattern rvalue ppattern pvalue pattern value))
 
      (and (map? pattern) (map? value))

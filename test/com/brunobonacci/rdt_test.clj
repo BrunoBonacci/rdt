@@ -1,10 +1,11 @@
 (ns com.brunobonacci.rdt-test
-  (:require [com.brunobonacci.rdt :refer :all]))
+  (:require [com.brunobonacci.rdt :refer :all]
+            [com.brunobonacci.rdt.checkers :as chk]))
 
 
 
 ;; import private fn
-(def subset-matcher #'com.brunobonacci.rdt/subset-matcher)
+(def subset-matcher #'chk/subset-matcher)
 
 
 (repl-test
@@ -137,20 +138,20 @@
     '(repl-test
        (+ 1 1) => 2))
   ==> '(midje.sweet/facts "REPL tests"
-        (com.brunobonacci.rdt.internal/fact->checks
-          (+ 1 1)
-          =>
-          (com.brunobonacci.rdt/fuzzy-checker 2)))
+         (com.brunobonacci.rdt.internal/fact->checks
+           (+ 1 1)
+           =>
+           (com.brunobonacci.rdt.checkers/fuzzy-checker 2)))
 
 
   (macroexpand-1
     '(repl-test "adding test name"
        (+ 1 1) => 2))
   ==> '(midje.sweet/facts "adding test name"
-        (com.brunobonacci.rdt.internal/fact->checks
-          (+ 1 1)
-          =>
-          (com.brunobonacci.rdt/fuzzy-checker 2)))
+         (com.brunobonacci.rdt.internal/fact->checks
+           (+ 1 1)
+           =>
+           (com.brunobonacci.rdt.checkers/fuzzy-checker 2)))
 
 
 
@@ -158,19 +159,19 @@
     '(repl-test {:labels [:foo :bar]} "adding labels"
        (+ 1 1) => 2))
   ==> '(midje.sweet/facts "adding labels" :foo :bar
-        (com.brunobonacci.rdt.internal/fact->checks
-          (+ 1 1)
-          =>
-          (com.brunobonacci.rdt/fuzzy-checker 2)))
+         (com.brunobonacci.rdt.internal/fact->checks
+           (+ 1 1)
+           =>
+           (com.brunobonacci.rdt.checkers/fuzzy-checker 2)))
 
 
   (macroexpand-1
     '(repl-test "different checkers"
        [1 2 3 4] =>  [1 2]
        [1 2 3 4] ==> [1 2 3 4]))
-  => '(midje.sweet/facts "different checkers"
-       (com.brunobonacci.rdt.internal/fact->checks
-         [1 2 3 4] => (com.brunobonacci.rdt/fuzzy-checker [1 2])
-         [1 2 3 4] => [1 2 3 4]))
+  ==> '(midje.sweet/facts "different checkers"
+        (com.brunobonacci.rdt.internal/fact->checks
+          [1 2 3 4] => (com.brunobonacci.rdt.checkers/fuzzy-checker [1 2])
+          [1 2 3 4] => (com.brunobonacci.rdt.checkers/exact-checker [1 2 3 4])))
 
   )
