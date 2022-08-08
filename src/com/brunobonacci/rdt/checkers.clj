@@ -122,22 +122,20 @@
   "A checker for the right-hand-side of the arrow which only checks the keys and items
    in the pattern and accepts additional keys without failing.
    See README.md for more info."
-  [expected]
-  (fn [actual*]
-    (try
-      (subset-matcher expected (actual*))
-      (catch Exception x
-        (if (= ::match-failed (:error-type (ex-data x)))
-          (checking/as-data-laden-falsehood
-            {:notes [(ex-message x) #_(with-out-str (clojure.pprint/pprint (ex-data x)))]})
-          (throw x))))))
+  [expected actual*]
+  (try
+    (subset-matcher expected (actual*))
+    (catch Exception x
+      (if (= ::match-failed (:error-type (ex-data x)))
+        (checking/as-data-laden-falsehood
+          {:notes [(ex-message x) #_(with-out-str (clojure.pprint/pprint (ex-data x)))]})
+        (throw x)))))
 
 
 
 (defn exact-checker
-  [expected]
-  (fn [actual*]
-    (try
-      (= expected (actual*))
-      (catch Exception x
-        (throw x)))))
+  [expected actual*]
+  (try
+    (= expected (actual*))
+    (catch Exception x
+      (throw x))))

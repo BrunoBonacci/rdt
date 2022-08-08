@@ -83,7 +83,7 @@
                   [[(second left) :as _last] (-wrap-statement _last meta (cons `fn (rest left)))]
 
                   checkable?
-                  [_last (-wrap-statement _last meta `((~(checkers-map test) ~right) (fn [] ~left)))]
+                  [_last (-wrap-statement _last meta `(~(checkers-map test) ~right (fn [] ~left)))]
 
                   :else ;; statement
                   [_last (-wrap-statement _last meta left)]))
