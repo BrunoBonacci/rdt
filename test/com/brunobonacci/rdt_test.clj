@@ -3,9 +3,34 @@
             [com.brunobonacci.rdt.checkers :as chk]))
 
 
+(repl-test "testing checkers"
+
+
+  1 => 1
+  1 ==> 1
+  1.0 => 1
+
+  ;; 1.0 ==> 1  ;; this is false
+
+  1.0 ==> 1.0
+
+  [1 2 3 4] => [1]
+
+  (/ 1 0) => (throws ArithmeticException)
+
+  (/ 1 0) => (throws Exception)
+  )
+
+
+
+
+
+
+
 
 ;; import private fn
 (def subset-matcher #'chk/subset-matcher)
+
 
 
 (repl-test

@@ -1,28 +1,5 @@
 (ns com.brunobonacci.rdt
-  (:require [com.brunobonacci.rdt.checkers :as chk]
-            [midje.sweet :as m]
-            [clojure.zip :as zip]
-            [clojure.pprint]
-            [potemkin]
-            [com.brunobonacci.rdt.internal :as i]))
-
-
-
-(defn- apply-fuzzy-checker
-  [forms]
-  (loop [z (zip/seq-zip forms)]
-    (if (identical? z (zip/next z))
-      (zip/root z)
-      (if (zip/branch? z)
-        (recur (zip/next z))
-        (recur (cond
-                 (= (zip/node z) '==>)
-                 (-> z (zip/edit (fn [v] (if (= v '==>) '=> v))) (zip/next))
-
-                 (= (zip/node z) '=>)
-                 (-> z (zip/next) (zip/edit (fn [v] (list `chk/fuzzy-checker v))) (zip/next))
-
-                 :else (zip/next z)))))))
+  (:require [com.brunobonacci.rdt.internal :as i]))
 
 
 
@@ -42,40 +19,37 @@
         test-name (if (string? (first forms)) (first forms) "REPL tests")
         forms     (if (string? (first forms)) (rest forms) forms)
         [tests _ & finals] (partition-by #{:rdt/finalize :rdt/finalise} forms)
-        tests     (apply-fuzzy-checker tests)]
-    `(m/facts ~test-name ~@(:labels cfg)
-       (i/fact->checks ~tests ~(mapcat identity finals)))))
-
-
-
-(potemkin/import-vars
-  [midje.sweet
-
-   throws
-   just
-   contains])
+        {:keys [line column]} (meta &form)
+        site      (str *ns* "[l:" line ", c:" column "]")
+        id        (i/sha256 (pr-str &form))
+        cfg       (assoc cfg :id id :ns (str *ns*) :form (list `quote &form)
+                    :name test-name :location site :outcome nil)]
+    `(i/register-and-run ~id ~cfg
+       (fn []
+         (i/fact->checks ~tests ~(mapcat identity finals))))))
 
 
 
 (comment
 
-  (repl-test "sample test"
+  (binding [i/*runner* nil]
+    (repl-test "sample test"
+      :ok
+      (def foo 1)
+      (def bar 2)
 
-    :ok
-    (def foo 1)
-    (def bar 2)
+      (println foo)
+      (println bar)
 
-    (println foo)
-    (println bar)
+      (def foo 2)
+      (println (+ foo bar))
 
-    (def foo 2)
-    (println (+ foo bar))
+      (assoc {} :foo (+ foo bar) :bar 22)
+      => {:foo 4 }
 
-    (assoc {} :foo (+ foo bar) :bar 22)
-    => {:foo 4 }
+      (println "end")
+      ))
 
-    (println "end")
-    )
 
 
   (repl-test {:labels [:foo]}

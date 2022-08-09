@@ -1,6 +1,5 @@
 (ns com.brunobonacci.rdt.checkers
   (:require [where.core :refer [where]]
-            [midje.checking.core :as checking]
             [clojure.set :as set]))
 
 
@@ -123,19 +122,24 @@
    in the pattern and accepts additional keys without failing.
    See README.md for more info."
   [expected actual*]
-  (try
-    (subset-matcher expected (actual*))
-    (catch Exception x
-      (if (= ::match-failed (:error-type (ex-data x)))
-        (checking/as-data-laden-falsehood
-          {:notes [(ex-message x) #_(with-out-str (clojure.pprint/pprint (ex-data x)))]})
-        (throw x)))))
+  (subset-matcher expected (actual*)))
 
 
 
 (defn exact-checker
   [expected actual*]
-  (try
-    (= expected (actual*))
-    (catch Exception x
-      (throw x))))
+  (let [actual (actual*)]
+    (or (= expected actual)
+      (throw (ex-info (format "\tExpected: %s\n\t  Actual: %s" (pr-str expected) (pr-str actual))
+               {:expected expected :actual actual})))))
+
+
+
+
+(defn throws-checker
+  [expected actual*]
+  (let [[actualv actuale] (try [(actual*)] (catch Throwable t [nil t]))]
+    (or (instance? expected actuale)
+      (throw (ex-info (format "\tExpected: %s\n\t  Actual: %s"
+                        (pr-str expected) (pr-str (or (type actuale) actualv)))
+               {:expected expected :actual (or actuale actualv)})))))

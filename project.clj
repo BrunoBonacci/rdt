@@ -12,10 +12,8 @@
 
   :scm {:name "git" :url "https://github.com/BrunoBonacci/rdt.git"}
 
-  :dependencies [[org.clojure/clojure "1.11.0-alpha1"]
-                 [midje "1.10.3"]
-                 [com.brunobonacci/where "0.5.6"]
-                 [potemkin "0.4.5"]]
+  :dependencies [[org.clojure/clojure "1.11.1"]
+                 [com.brunobonacci/where "0.5.6"]]
 
   :global-vars {*warn-on-reflection* true}
 
@@ -24,12 +22,10 @@
   :profiles {:dev {:source-paths ["dev"]
                    :dependencies [[org.clojure/test.check "1.1.0"]
                                   [criterium "0.4.6"]
-                                  [org.slf4j/slf4j-log4j12 "1.7.31"]
                                   [com.clojure-goes-fast/clj-async-profiler "0.5.0"]
                                   [jmh-clojure "0.4.0"]]
                    :resource-paths ["dev-resources"]
-                   :plugins      [[lein-midje "3.2.2"]
-                                  [lein-jmh "0.3.0"]]}}
+                   :plugins      [[lein-jmh "0.3.0"]]}}
 
   :aliases
   {"perf-quick"

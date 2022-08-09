@@ -1,6 +1,7 @@
 (ns com.brunobonacci.rdt.internal
   (:require [where.core :refer [where]]
-            [com.brunobonacci.rdt.checkers :as chk]))
+            [com.brunobonacci.rdt.checkers :as chk]
+            [clojure.string :as str]))
 
 
 
@@ -52,11 +53,26 @@
 
 
 
+(defn checker
+  [[left test right :as triplet]]
+  (cond
+    (nil? test)
+    nil
 
-(def checkers-map
-  {nil   nil
-   '=>   `chk/fuzzy-checker
-   '==>  `chk/exact-checker})
+    (and (list? right) (= 'throws (first right)))
+    ['throws `chk/throws-checker]
+
+    (= test '=>)
+    ['=> `chk/fuzzy-checker]
+
+    (= test '==>)
+    ['==> `chk/exact-checker]
+
+    :else
+    (throw
+      (ex-info (format "Unknown or invalid checker %s" (pr-str test))
+        {:form triplet}))))
+
 
 
 
@@ -68,12 +84,13 @@
     (->> statements
       (mapv (fn [[left test right :as triplet]]
               (let [checkable? (not (nil? test))
+                    checker* (checker triplet)
                     meta {:form (list `quote (vec triplet))
                           :checkable? checkable?
                           :def?  (def? left)
                           :defn? (defn? left)
-                          :checking-symbol (list `quote test)
-                          :checking-funciton (checkers-map test)}]
+                          :checking-symbol (list `quote (first checker*))
+                          :checking-funciton (second checker*)}]
 
                 (cond
                   (def? left)
@@ -82,8 +99,11 @@
                   (defn? left)
                   [[(second left) :as _last] (-wrap-statement _last meta (cons `fn (rest left)))]
 
+                  (and checkable? (= 'throws (first checker*)))
+                  [_last (-wrap-statement _last meta `(~(second checker*) ~(second right) (fn [] ~left)))]
+
                   checkable?
-                  [_last (-wrap-statement _last meta `(~(checkers-map test) ~right (fn [] ~left)))]
+                  [_last (-wrap-statement _last meta `(~(second checker*) ~right (fn [] ~left)))]
 
                   :else ;; statement
                   [_last (-wrap-statement _last meta left)]))
@@ -94,10 +114,12 @@
 
 
 (comment
-  (->> '(
-       (def foo 1)
-       (def bar 2)
-       (+ foo bar)  => 3)
+  (->> '((+ 2 1)  => 3)
+    (-separate-statements)
+    (-statements->executable)
+    )
+
+  (->> '((/ 1 0)  => (throws Exception))
     (-separate-statements)
     (-statements->executable)
     )
@@ -129,33 +151,30 @@
 
 
 
+(defmacro fact->checks2
+  {:no-doc true}
+  [& body]
+  (-fact->checks body '()))
+
+
+
 (comment
 
 
+  (fact->checks2
+    (defn foo [n] (* n 2))
+    (foo 3) => 6)
 
-  (def t
-    (fact->checks
-      (defn foo [n] (* n 2))
-      (foo 3) => 6))
+  (fact->checks2
+    (def foo 1))
 
-  (-> ((-> t first :fn) {}) first second (#(% 5)))
+  (fact->checks2
+    (+ 1 2) => 3.0)
 
-  (def t
-    (fact->checks
-      (def foo 1)))
+  (fact->checks2
+    (+ 1 2) ==> 3.0)
 
-
-  (fact->checks
-    (+ 1 2) ==> 3)
-
-  (def t
-    (fact->checks
-      (+ 1 2) ==> 3))
-
-  ((-> t first :fn) {})
-
-
-  (fact->checks
+  (fact->checks2
     :ok
     (def foo 1)
     (def bar 2)
@@ -173,9 +192,54 @@
 
     (println "end")
 
-
-
     )
 
 
   )
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                                                            ;;
+;;                      ----==| R E G I S T R Y |==----                       ;;
+;;                                                                            ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(defn sha256
+  "hex encoded sha-256 hash"
+  [^String data]
+  (let [md        (java.security.MessageDigest/getInstance "SHA256")
+        signature (.digest md (.getBytes data "utf-8"))
+        size      (* 2 (.getDigestLength md))
+        hex-sig   (.toString (BigInteger. 1 signature) 16)
+        padding   (str/join (repeat (- size (count hex-sig)) "0"))]
+    (str padding hex-sig)))
+
+
+
+(def registry
+  (atom {}))
+
+
+
+(defn register-test
+  [id meta testfn]
+  (swap! registry assoc id {:id id :meta meta :fn testfn}))
+
+
+
+(def ^:dynamic *runner* :inline)
+
+(defn run-test
+  [test-id]
+  (when (= :inline *runner*)
+    (when-let [test (get-in @registry [test-id :fn])]
+      (test))))
+
+
+
+(defn register-and-run
+  [id meta testfn]
+  (register-test id meta testfn)
+  (run-test id))
