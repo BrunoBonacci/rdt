@@ -3,6 +3,7 @@
             [com.brunobonacci.rdt.checkers :as chk]))
 
 
+
 (repl-test "testing checkers"
 
 
@@ -20,11 +21,6 @@
 
   (/ 1 0) => (throws Exception)
   )
-
-
-
-
-
 
 
 
@@ -176,6 +172,7 @@
   )
 
 
+
 (repl-test "testing repl-test macro"
 
   (macroexpand-1
@@ -212,7 +209,7 @@
        (clojure.core/fn
          []
          (com.brunobonacci.rdt.internal/fact->checks ((+ 1 1) => 2) ())))
- )
+  )
 
 
 
@@ -243,8 +240,6 @@
            ())))
 
   )
-
-
 
 
 
@@ -292,17 +287,15 @@
 
 
 
-
-
 (repl-test "testing finalizers execution, no headline"
 
   (def finalizer (atom false))
 
   (repl-test
-     (+ 1 1) ==> 2
+    (+ 1 1) ==> 2
 
-     :rdt/finalize
-     (swap! finalizer (constantly true)))
+    :rdt/finalize
+    (swap! finalizer (constantly true)))
 
   @finalizer ==> true
 
@@ -315,10 +308,10 @@
   (def finalizer (atom false))
 
   (repl-test "testing finalizer"
-     (+ 1 1) ==> 2
+    (+ 1 1) ==> 2
 
-     :rdt/finalize
-     (swap! finalizer (constantly true)))
+    :rdt/finalize
+    (swap! finalizer (constantly true)))
 
   @finalizer ==> true
 
@@ -331,11 +324,11 @@
   (def finalizer (atom false))
 
   (repl-test {:labels [:foo]} "testing finalizer"
-     (+ 1 1) ==> 2
+    (+ 1 1) ==> 2
 
-     :rdt/finalize
-     (swap! finalizer (constantly true)))
+    :rdt/finalize
+    (swap! finalizer (constantly true)))
 
   @finalizer ==> true
 
-)
+  )
