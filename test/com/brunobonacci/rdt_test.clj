@@ -162,54 +162,85 @@
   (macroexpand-1
     '(repl-test
        (+ 1 1) => 2))
-  ==> '(midje.sweet/facts "REPL tests"
-         (com.brunobonacci.rdt.internal/fact->checks
-           ;; test body
-           ((+ 1 1)
-            =>
-            (com.brunobonacci.rdt.checkers/fuzzy-checker 2))
-           ;; finalizer
-           ()))
+  => '(com.brunobonacci.rdt.internal/register-and-run
+       "97c0cfc9cda15fee776817c4c649c46daeaa58014e892c913afacbab4ddfc7ff"
+       {:id "97c0cfc9cda15fee776817c4c649c46daeaa58014e892c913afacbab4ddfc7ff",
+        :ns "com.brunobonacci.rdt-test",
+        :form '(repl-test (+ 1 1) => 2),
+        :name "REPL tests",
+        :outcome nil}
+       (clojure.core/fn
+         []
+         (com.brunobonacci.rdt.internal/fact->checks ((+ 1 1) => 2) ())))
 
+  )
+
+
+(repl-test "testing repl-test macro"
 
   (macroexpand-1
     '(repl-test "adding test name"
        (+ 1 1) => 2))
-  ==> '(midje.sweet/facts "adding test name"
-         (com.brunobonacci.rdt.internal/fact->checks
-           ;; test body
-           ((+ 1 1)
-            =>
-            (com.brunobonacci.rdt.checkers/fuzzy-checker 2))
-           ;; finalizer
-           ()))
+  => '(com.brunobonacci.rdt.internal/register-and-run
+       "bef77381d5b8b0a47dd7e790df9fd04b699849342475237f40da871a69d8174d"
+       {:id "bef77381d5b8b0a47dd7e790df9fd04b699849342475237f40da871a69d8174d",
+        :ns "com.brunobonacci.rdt-test",
+        :form '(repl-test "adding test name" (+ 1 1) => 2),
+        :name "adding test name",
+        :outcome nil}
+       (clojure.core/fn
+         []
+         (com.brunobonacci.rdt.internal/fact->checks ((+ 1 1) => 2) ())))
+
+  )
 
 
+
+(repl-test "testing repl-test macro"
 
   (macroexpand-1
     '(repl-test {:labels [:foo :bar]} "adding labels"
        (+ 1 1) => 2))
-  ==> '(midje.sweet/facts "adding labels" :foo :bar
-         (com.brunobonacci.rdt.internal/fact->checks
-           ;; test body
-           ((+ 1 1)
-            =>
-            (com.brunobonacci.rdt.checkers/fuzzy-checker 2))
-           ;; finalizer
-           ()))
+  => '(com.brunobonacci.rdt.internal/register-and-run
+       "558303fc5daceaebfd7f04599024714d1d6b8c390ce04b115e7b7b84174d1ecc"
+       {:labels [:foo :bar],
+        :id "558303fc5daceaebfd7f04599024714d1d6b8c390ce04b115e7b7b84174d1ecc",
+        :ns "com.brunobonacci.rdt-test",
+        :form '(repl-test {:labels [:foo :bar]} "adding labels" (+ 1 1) => 2),
+        :name "adding labels",
+        :outcome nil}
+       (clojure.core/fn
+         []
+         (com.brunobonacci.rdt.internal/fact->checks ((+ 1 1) => 2) ())))
+ )
 
 
+
+(repl-test "testing repl-test macro"
   (macroexpand-1
     '(repl-test "different checkers"
        [1 2 3 4] =>  [1 2]
        [1 2 3 4] ==> [1 2 3 4]))
-  ==> '(midje.sweet/facts "different checkers"
-        (com.brunobonacci.rdt.internal/fact->checks
-           ;; test body
-          ([1 2 3 4] => (com.brunobonacci.rdt.checkers/fuzzy-checker [1 2])
-           [1 2 3 4] => (com.brunobonacci.rdt.checkers/exact-checker [1 2 3 4]))
-          ;; finalizer
-          ()))
+  => '(com.brunobonacci.rdt.internal/register-and-run
+       "644678c04ef05eb8d254d08c6cebc7a68c76f6069e3abf06c1df9725b421a7aa"
+       {:id "644678c04ef05eb8d254d08c6cebc7a68c76f6069e3abf06c1df9725b421a7aa",
+        :ns "com.brunobonacci.rdt-test",
+        :form
+        '(repl-test
+           "different checkers"
+           [1 2 3 4]
+           =>
+           [1 2]
+           [1 2 3 4]
+           ==>
+           [1 2 3 4]),
+        :name "different checkers",
+        :outcome nil}
+       (clojure.core/fn
+         []
+         (com.brunobonacci.rdt.internal/fact->checks
+           ([1 2 3 4] => [1 2] [1 2 3 4] ==> [1 2 3 4])
+           ())))
 
   )
 
@@ -224,15 +255,17 @@
        (+ 1 1) => 2
        :rdt/finalize
        (println "all done!")))
-
-  ==> '(midje.sweet/facts "REPL tests"
+  => '(com.brunobonacci.rdt.internal/register-and-run
+       "1cc313d7deee57a8c6c9258cba5b225605d874bf81e0a3f0bc5dc2dd60f0389b"
+       {:ns "com.brunobonacci.rdt-test",
+        :name "REPL tests",
+        :outcome nil}
+       (clojure.core/fn
+         []
          (com.brunobonacci.rdt.internal/fact->checks
-           ;; test body
-           ((+ 1 1)
-            =>
-            (com.brunobonacci.rdt.checkers/fuzzy-checker 2))
-           ;; finalizer
-           ((println "all done!"))))
+           ((+ 1 1) => 2)
+           ((println "all done!")))))
+
 
 
 
@@ -244,17 +277,16 @@
        (println "all done!")
        :rdt/finalize
        (println "all done!2")))
-
-  ==> '(midje.sweet/facts "REPL tests"
+  => '(com.brunobonacci.rdt.internal/register-and-run
+       "5935fd0dd9788e32bb16520d13cbfabf924fcb15ef4716e70cc76c29d018a4fc"
+       {:ns "com.brunobonacci.rdt-test",
+        :name "REPL tests",
+        :outcome nil}
+       (clojure.core/fn
+         []
          (com.brunobonacci.rdt.internal/fact->checks
-           ;; test body
-           ((+ 1 1)
-            =>
-            (com.brunobonacci.rdt.checkers/fuzzy-checker 2))
-           ;; finalizer
-           ((println "all done!")
-            :rdt/finalize
-            (println "all done!2"))))
+           ((+ 1 1) => 2)
+           ((println "all done!") :rdt/finalize (println "all done!2")))))
 
   )
 
