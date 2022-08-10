@@ -163,8 +163,7 @@
        {:id "97c0cfc9cda15fee776817c4c649c46daeaa58014e892c913afacbab4ddfc7ff",
         :ns "com.brunobonacci.rdt-test",
         :form '(repl-test (+ 1 1) => 2),
-        :name "REPL tests",
-        :outcome nil}
+        :name "REPL tests"}
        (clojure.core/fn
          []
          (com.brunobonacci.rdt.internal/fact->checks ((+ 1 1) => 2) ())))
@@ -183,8 +182,7 @@
        {:id "bef77381d5b8b0a47dd7e790df9fd04b699849342475237f40da871a69d8174d",
         :ns "com.brunobonacci.rdt-test",
         :form '(repl-test "adding test name" (+ 1 1) => 2),
-        :name "adding test name",
-        :outcome nil}
+        :name "adding test name"}
        (clojure.core/fn
          []
          (com.brunobonacci.rdt.internal/fact->checks ((+ 1 1) => 2) ())))
@@ -204,8 +202,7 @@
         :id "558303fc5daceaebfd7f04599024714d1d6b8c390ce04b115e7b7b84174d1ecc",
         :ns "com.brunobonacci.rdt-test",
         :form '(repl-test {:labels [:foo :bar]} "adding labels" (+ 1 1) => 2),
-        :name "adding labels",
-        :outcome nil}
+        :name "adding labels"}
        (clojure.core/fn
          []
          (com.brunobonacci.rdt.internal/fact->checks ((+ 1 1) => 2) ())))
@@ -231,8 +228,7 @@
            [1 2 3 4]
            ==>
            [1 2 3 4]),
-        :name "different checkers",
-        :outcome nil}
+        :name "different checkers"}
        (clojure.core/fn
          []
          (com.brunobonacci.rdt.internal/fact->checks
@@ -253,8 +249,7 @@
   => '(com.brunobonacci.rdt.internal/register-and-run
        "1cc313d7deee57a8c6c9258cba5b225605d874bf81e0a3f0bc5dc2dd60f0389b"
        {:ns "com.brunobonacci.rdt-test",
-        :name "REPL tests",
-        :outcome nil}
+        :name "REPL tests",}
        (clojure.core/fn
          []
          (com.brunobonacci.rdt.internal/fact->checks
@@ -275,8 +270,7 @@
   => '(com.brunobonacci.rdt.internal/register-and-run
        "5935fd0dd9788e32bb16520d13cbfabf924fcb15ef4716e70cc76c29d018a4fc"
        {:ns "com.brunobonacci.rdt-test",
-        :name "REPL tests",
-        :outcome nil}
+        :name "REPL tests",}
        (clojure.core/fn
          []
          (com.brunobonacci.rdt.internal/fact->checks

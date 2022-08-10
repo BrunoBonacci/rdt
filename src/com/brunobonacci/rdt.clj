@@ -23,7 +23,7 @@
         site      (str *ns* "[l:" line ", c:" column "]")
         id        (i/sha256 (pr-str &form))
         cfg       (assoc cfg :id id :ns (str *ns*) :form (list `quote &form)
-                    :name test-name :location site :outcome nil)]
+                    :name test-name :location site)]
     `(i/register-and-run ~id ~cfg
        (fn []
          (i/fact->checks ~tests ~(mapcat identity finals))))))
