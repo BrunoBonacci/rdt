@@ -1,9 +1,15 @@
 (ns com.brunobonacci.rdt.internal
   (:require [where.core :refer [where]]
             [com.brunobonacci.rdt.checkers :as chk]
-            [clojure.string :as str]
-            [clojure.java.io :as io]))
+            [clojure.string :as str]))
 
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                                                            ;;
+;;                ----==| T E R M   R E W R I T I N G |==----                 ;;
+;;                                                                            ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 (defn -separate-statements
@@ -245,43 +251,3 @@
   [id meta testfn]
   (register-test id meta testfn)
   (run-test id))
-
-
-
-(defn- classpath
-  []
-  (-> (System/getProperty "java.class.path")
-    (str/split (re-pattern (System/getProperty "path.separator")))))
-
-
-
-(defn lazy-list-files
-  [base]
-  (->> (io/file base)
-    (tree-seq
-      (memfn ^java.io.File isDirectory)
-      (memfn ^java.io.File listFiles))
-    (filter (memfn ^java.io.File isFile))))
-
-
-
-(defn find-tests-files
-  [patterns]
-  (let [patterns (if (= patterns :all) [".*"] patterns)]
-    (->> (classpath)
-      (filter (fn [f] (.isDirectory (io/file f))))
-      (mapcat lazy-list-files)
-      (map (memfn ^java.io.File getAbsolutePath))
-      (distinct)
-      (filter (where [:or [:ends-with? "_test.clj"] [:ends-with? "_test.cljc"]]))
-      (filter (fn [f] (some #(re-find (re-pattern %) f) patterns))))))
-
-
-
-(comment
-
-  (binding [*runner* nil]
-    (run! load-file (find-tests-files :all)))
-
-  (count @registry)
-  )
