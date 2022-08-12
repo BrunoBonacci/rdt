@@ -224,6 +224,14 @@
 
 
 
+(defn test-id
+  [form]
+  (-> form
+    (pr-str)
+    (str/replace #"__\d+#" "__#")
+    (sha256)))
+
+
 (def registry
   (atom {}))
 

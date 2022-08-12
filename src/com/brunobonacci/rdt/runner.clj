@@ -1,7 +1,10 @@
 (ns com.brunobonacci.rdt.runner
   (:require [com.brunobonacci.rdt.internal :as i]
             [where.core :refer [where]]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clojure.java.io :as io])
+  (:gen-class))
+
 
 
 
@@ -94,8 +97,22 @@
 
   (find-tests-files ["test"] :all nil)
 
-  (binding [*runner* nil]
-    (run! load-file (find-tests-files (project-dirs) :all nil)))
+  (binding [i/*runner* nil]
+    (->> (find-tests-files (project-dirs) :all nil)
+      (run! (fn [{:keys [ns]}]
+              (println "  (*) loading:" ns)
+              (require (symbol ns) :reload #_-all)))))
+
 
   (count @i/registry)
+
+
+  (doseq [test (->> (vals @i/registry)
+                 (sort-by (comp :ns :meta))
+                 (remove (where (comp :labels :meta) :is? [:container])))]
+
+    (println "running: " (-> test :meta :name))
+    ((:fn test)))
+
+
   )
