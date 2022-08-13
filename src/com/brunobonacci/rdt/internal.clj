@@ -232,30 +232,25 @@
     (sha256)))
 
 
-(def registry
-  (atom {}))
+
+(def ^:dynamic *runner* {:type :inline :reporters [] :include-labels :all :exclude-labels nil})
 
 
-
-(defn register-test
-  [id meta testfn]
-  (swap! registry assoc id {:id id :meta meta :fn testfn}))
+(def runner nil)
 
 
-
-(def ^:dynamic *runner* :inline)
-
+(defmulti runner (fn [{:keys [type]} test] type))
 
 
-(defn run-test
-  [test-id]
-  (when (= :inline *runner*)
-    (when-let [test (get-in @registry [test-id :fn])]
-      (test))))
+(defmethod runner nil
+  [_ test])
 
 
+(defmethod runner :inline
+  [_ test]
+  (test))
 
-(defn register-and-run
-  [id meta testfn]
-  (register-test id meta testfn)
-  (run-test id))
+
+(defn eval-test
+  [test]
+  (runner *runner* test))

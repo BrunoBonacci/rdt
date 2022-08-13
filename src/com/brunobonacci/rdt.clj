@@ -25,31 +25,36 @@
         cfg       (assoc cfg :id id :ns (str *ns*) :form (list `quote &form)
                     :name test-name
                     :location site)]
-    `(i/register-and-run ~id ~cfg
-       (fn []
-         (i/fact->checks ~tests ~(mapcat identity finals))))))
+    `(i/eval-test
+       (let [~'test-id ~id ~'test-info ~cfg]
+         (fn
+           ([cmd#]
+            (case cmd#
+              :test-id   ~'test-id
+              :test-info ~'test-info))
+           ([]
+            (i/fact->checks ~tests ~(mapcat identity finals))))))))
 
 
 
 (comment
 
-  (binding [i/*runner* nil]
-    (repl-test "sample test"
-      :ok
-      (def foo 1)
-      (def bar 2)
+  (repl-test "sample test"
+    :ok
+    (def foo 1)
+    (def bar 2)
 
-      (println foo)
-      (println bar)
+    (println foo)
+    (println bar)
 
-      (def foo 2)
-      (println (+ foo bar))
+    (def foo 2)
+    (println (+ foo bar))
 
-      (assoc {} :foo (+ foo bar) :bar 22)
-      => {:foo 4 }
+    (assoc {} :foo (+ foo bar) :bar 22)
+    => {:foo 4 }
 
-      (println "end")
-      ))
+    (println "end")
+    )
 
 
 
