@@ -102,9 +102,9 @@
 
 
 ;; TODO: add regex->regex, array->array, regex->string, fn->val
-(defn- subset-matcher
+(defn- partial-matcher
   ([pattern value]
-   (subset-matcher pattern value pattern value pattern value))
+   (partial-matcher pattern value pattern value pattern value))
   ([rpattern rvalue ppattern pvalue pattern value]
    (cond
      (and (atomic-value? pattern) (atomic-value? value))
@@ -113,12 +113,12 @@
        (match-error rpattern rvalue ppattern pvalue pattern value))
 
      (and (sequential? pattern) (primitive-array? value))
-     (subset-matcher rpattern rvalue ppattern pvalue pattern (into [] value))
+     (partial-matcher rpattern rvalue ppattern pvalue pattern (into [] value))
 
      (and (sequential? pattern) (sequential? value))
      (->> (zip-lists :rdt/<missing-value> pattern value)
        (filter (where first not= :rdt/<missing-value>))
-       (map (partial apply subset-matcher rpattern rvalue pattern value))
+       (map (partial apply partial-matcher rpattern rvalue pattern value))
        (every? true?))
 
      (and (set? pattern) (set? value))
@@ -129,7 +129,7 @@
      (->> pattern
        keys
        (fetch-keys value)
-       (map (partial subset-matcher rpattern rvalue pattern value) pattern)
+       (map (partial partial-matcher rpattern rvalue pattern value) pattern)
        (every? true?))
 
      (and (fn? pattern) (not (fn? value)))
@@ -150,7 +150,7 @@
    in the pattern and accepts additional keys without failing.
    See README.md for more info."
   [expected actual*]
-  (subset-matcher expected (actual*)))
+  (partial-matcher expected (actual*)))
 
 
 
