@@ -215,7 +215,7 @@
 (defn sha256
   "hex encoded sha-256 hash"
   [^String data]
-  (let [md        (java.security.MessageDigest/getInstance "SHA256")
+  (let [md        (java.security.MessageDigest/getInstance "SHA-256")
         signature (.digest md (.getBytes data "utf-8"))
         size      (* 2 (.getDigestLength md))
         hex-sig   (.toString (BigInteger. 1 signature) 16)
