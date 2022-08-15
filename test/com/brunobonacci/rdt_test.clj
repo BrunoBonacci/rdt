@@ -155,127 +155,90 @@
 
 (repl-test "testing repl-test macro"
 
-  (macroexpand-1
+  (->>
     '(repl-test
-       (+ 1 1) => 2))
-  => '(com.brunobonacci.rdt.internal/register-and-run
-       "97c0cfc9cda15fee776817c4c649c46daeaa58014e892c913afacbab4ddfc7ff"
-       {:id "97c0cfc9cda15fee776817c4c649c46daeaa58014e892c913afacbab4ddfc7ff",
-        :ns "com.brunobonacci.rdt-test",
-        :form '(repl-test (+ 1 1) => 2),
-        :name "REPL tests"}
-       (clojure.core/fn
-         []
-         (com.brunobonacci.rdt.internal/fact->checks ((+ 1 1) => 2) ())))
-
+       (+ 1 1) => 2)
+    (macroexpand-1)
+    (tree-seq sequential? identity)
+    (filter #(and (sequential? %) (= (first %) 'com.brunobonacci.rdt.internal/fact->checks)))
+    first)
+  => '(com.brunobonacci.rdt.internal/fact->checks ((+ 1 1) => 2) ())
   )
 
 
 
 (repl-test "testing repl-test macro"
 
-  (macroexpand-1
+  (->>
     '(repl-test "adding test name"
-       (+ 1 1) => 2))
-  => '(com.brunobonacci.rdt.internal/register-and-run
-       "bef77381d5b8b0a47dd7e790df9fd04b699849342475237f40da871a69d8174d"
-       {:id "bef77381d5b8b0a47dd7e790df9fd04b699849342475237f40da871a69d8174d",
-        :ns "com.brunobonacci.rdt-test",
-        :form '(repl-test "adding test name" (+ 1 1) => 2),
-        :name "adding test name"}
-       (clojure.core/fn
-         []
-         (com.brunobonacci.rdt.internal/fact->checks ((+ 1 1) => 2) ())))
+       (+ 1 1) => 2)
+    (macroexpand-1)
+    (tree-seq sequential? identity)
+    (filter #(and (sequential? %) (= (first %) 'com.brunobonacci.rdt.internal/fact->checks)))
+    first)
+  => '(com.brunobonacci.rdt.internal/fact->checks ((+ 1 1) => 2) ())
 
+
+  (->>
+    '(repl-test "adding test name"
+       (+ 1 1) => 2)
+    (macroexpand-1)
+    (tree-seq sequential? identity)
+    (filter #(and (map? %) (:id %)))
+    first
+    :name)
+  => "adding test name"
   )
 
 
 
 (repl-test "testing repl-test macro"
 
-  (macroexpand-1
+  (->>
     '(repl-test {:labels [:foo :bar]} "adding labels"
-       (+ 1 1) => 2))
-  => '(com.brunobonacci.rdt.internal/register-and-run
-       "558303fc5daceaebfd7f04599024714d1d6b8c390ce04b115e7b7b84174d1ecc"
-       {:labels [:foo :bar],
-        :id "558303fc5daceaebfd7f04599024714d1d6b8c390ce04b115e7b7b84174d1ecc",
-        :ns "com.brunobonacci.rdt-test",
-        :form '(repl-test {:labels [:foo :bar]} "adding labels" (+ 1 1) => 2),
-        :name "adding labels"}
-       (clojure.core/fn
-         []
-         (com.brunobonacci.rdt.internal/fact->checks ((+ 1 1) => 2) ())))
-  )
-
-
-
-(repl-test "testing repl-test macro"
-  (macroexpand-1
-    '(repl-test "different checkers"
-       [1 2 3 4] =>  [1 2]
-       [1 2 3 4] ==> [1 2 3 4]))
-  => '(com.brunobonacci.rdt.internal/register-and-run
-       "644678c04ef05eb8d254d08c6cebc7a68c76f6069e3abf06c1df9725b421a7aa"
-       {:id "644678c04ef05eb8d254d08c6cebc7a68c76f6069e3abf06c1df9725b421a7aa",
-        :ns "com.brunobonacci.rdt-test",
-        :form
-        '(repl-test
-           "different checkers"
-           [1 2 3 4]
-           =>
-           [1 2]
-           [1 2 3 4]
-           ==>
-           [1 2 3 4]),
-        :name "different checkers"}
-       (clojure.core/fn
-         []
-         (com.brunobonacci.rdt.internal/fact->checks
-           ([1 2 3 4] => [1 2] [1 2 3 4] ==> [1 2 3 4])
-           ())))
-
+       (+ 1 1) => 2)
+    (macroexpand-1)
+    (tree-seq sequential? identity)
+    (filter #(and (map? %) (:labels %)))
+    first
+    :labels)
+  => [:foo :bar]
   )
 
 
 
 (repl-test "testing repl-test macro with finalizers"
 
-  (macroexpand-1
+  (->>
     '(repl-test
        (+ 1 1) => 2
        :rdt/finalize
-       (println "all done!")))
-  => '(com.brunobonacci.rdt.internal/register-and-run
-       "1cc313d7deee57a8c6c9258cba5b225605d874bf81e0a3f0bc5dc2dd60f0389b"
-       {:ns "com.brunobonacci.rdt-test",
-        :name "REPL tests",}
-       (clojure.core/fn
-         []
-         (com.brunobonacci.rdt.internal/fact->checks
-           ((+ 1 1) => 2)
-           ((println "all done!")))))
+       (println "all done!"))
+    (macroexpand-1)
+    (tree-seq sequential? identity)
+    (filter #(and (sequential? %) (= (first %) 'com.brunobonacci.rdt.internal/fact->checks)))
+    first)
+  => '(com.brunobonacci.rdt.internal/fact->checks
+       ((+ 1 1) => 2)
+       ((println "all done!")))
 
 
 
 
   ;; if more than one :rdt/finalize are added it grabs them all
-  (macroexpand-1
-    '(repl-test
-       (+ 1 1) => 2
-       :rdt/finalize
-       (println "all done!")
-       :rdt/finalize
-       (println "all done!2")))
-  => '(com.brunobonacci.rdt.internal/register-and-run
-       "5935fd0dd9788e32bb16520d13cbfabf924fcb15ef4716e70cc76c29d018a4fc"
-       {:ns "com.brunobonacci.rdt-test",
-        :name "REPL tests",}
-       (clojure.core/fn
-         []
-         (com.brunobonacci.rdt.internal/fact->checks
-           ((+ 1 1) => 2)
-           ((println "all done!") :rdt/finalize (println "all done!2")))))
+  (->> '(repl-test
+        (+ 1 1) => 2
+        :rdt/finalize
+        (println "all done!")
+        :rdt/finalize
+        (println "all done!2"))
+    (macroexpand-1)
+    (tree-seq sequential? identity)
+    (filter #(and (sequential? %) (= (first %) 'com.brunobonacci.rdt.internal/fact->checks)))
+    first)
+  => '(com.brunobonacci.rdt.internal/fact->checks
+       ((+ 1 1) => 2)
+       ((println "all done!") :rdt/finalize (println "all done!2")))
 
   )
 
