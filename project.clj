@@ -27,6 +27,8 @@
                    :resource-paths ["dev-resources"]
                    :plugins      [[lein-jmh "0.3.0"]]}}
 
+  :main com.brunobonacci.rdt.runner
+
   :aliases
   {"perf-quick"
    ["with-profile" "dev" "jmh"
@@ -40,5 +42,11 @@
     #=(pr-str {:file "./dev/perf/benchmarks.edn"
                :status true :pprint true :format :table
                :output #=(clojure.string/join "-" ["./reservoir" #=(ver) #=(jdk) #=(ts) "results.edn"])})]
+
+   "test"
+   ["run"]
+
+   "midje"
+   ["run"]
    }
   )

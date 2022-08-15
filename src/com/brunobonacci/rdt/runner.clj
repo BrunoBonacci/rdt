@@ -8,7 +8,6 @@
 
 
 
-
 (defn- classpath
   []
   (-> (System/getProperty "java.class.path")
@@ -97,7 +96,10 @@
 
 (def stats (atom {}))
 
+
+
 (def ^:dynamic *test-execution-id* nil)
+
 
 
 (defn matches-labels?
@@ -105,14 +107,15 @@
   (fn [{:keys [labels]}]
     (let [labels (set labels)
           include-labels?  (if (= include-labels :all)
-                            (constantly true)
-                            #(not (empty? (set/intersection (set include-labels) %))))
+                             (constantly true)
+                             #(not (empty? (set/intersection (set include-labels) %))))
           exclude-labels?  (if (empty? exclude-labels)
-                            (constantly false)
-                            #(not (empty? (set/intersection (set exclude-labels) %))))]
+                             (constantly false)
+                             #(not (empty? (set/intersection (set exclude-labels) %))))]
 
       (and (include-labels? labels)
         (not (exclude-labels? labels))))))
+
 
 
 (defmethod i/runner :batch-runner
@@ -136,8 +139,6 @@
                 (update-in [*test-execution-id* id :executions] (fnil inc  0))
                 (update-in [*test-execution-id* id :errors]     (fnil conj []) x)
                 (update-in [*test-execution-id* id :failures]   (fnil inc  0))))))))))
-
-
 
 
 
@@ -194,6 +195,23 @@
      :success-rate (double (if (= tests 0) 0 (/ success tests)))}))
 
 
+
+(defn print-summary
+  [{:keys [tests success failures success-rate]}]
+  (println
+    (format
+      (str
+        "\n"
+        "==== Test summary ====\n"
+        " Total tests: %,6d\n"
+        "          OK: %,6d\n"
+        "      Failed: %,6d\n"
+        "Success rate:   %3.0f%%\n"
+        "======================\n")
+      tests success failures (* success-rate 100.0))))
+
+
+
 (defn run-tests
   [{:keys [folders include-patterns exclude-patterns runner test-execution-id include-labels exclude-labels]
     :or {include-patterns :all exclude-patterns nil
@@ -212,9 +230,7 @@
       ;; remove execution
       (swap! stats dissoc test-execution-id)
 
-      ret)
-
-    ))
+      ret)))
 
 
 
@@ -233,3 +249,11 @@
 
 
   )
+
+
+
+(defn -main [& args]
+  (let [config (merge {:folders (project-dirs)} (when (first args) (read-string (first args))))]
+    (let [{:keys [failures] :as summary} (run-tests config)]
+      (print-summary summary)
+      (System/exit failures))))
