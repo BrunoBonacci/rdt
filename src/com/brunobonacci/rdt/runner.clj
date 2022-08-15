@@ -142,46 +142,6 @@
 
 
 
-(comment
-
-  ((matches-labels? :all nil) {})
-  ;; => true
-
-
-  ((matches-labels? :all nil) {:labels []})
-  ;; => true
-
-  ((matches-labels? :all nil) {:labels [:slow]})
-  ;; => true
-
-  ((matches-labels? [] nil) {:labels [:slow]})
-  ;; => false
-
-  ((matches-labels? [:slow] nil) {:labels [:slow]})
-  ;; => true
-
-  ((matches-labels? [:slow :integration] nil) {:labels [:slow :generated]})
-  ;; => true
-
-  ((matches-labels? [:slow :integration] nil) {:labels [:slow :integration]})
-  ;; => true
-
-  ((matches-labels? [:slow :integration] [:linux-only]) {:labels [:slow :generated]})
-  ;; => true
-
-  ((matches-labels? [:slow :integration] [:generated]) {:labels [:slow :generated]})
-  ;; => false
-
-  ((matches-labels? [:integration] [:generated]) {:labels [:slow :generated]})
-  ;; => false
-
-  ((matches-labels? :all [:generated]) {:labels [:slow :generated]})
-  ;; => false
-
-  )
-
-
-
 (defn brief-summary
   [test-execution-id]
   (let [execution (get @stats test-execution-id)
