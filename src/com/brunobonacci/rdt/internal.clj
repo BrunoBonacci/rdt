@@ -12,10 +12,16 @@
 
 
 
+(defmacro no-fail
+  [& body]
+  `(try ~@body (catch Exception x#)))
+
+
+
 (defmacro do-with
   [value & forms]
   `(let [~'it ~value]
-     (try ~@forms (catch Exception x#))
+     (no-fail ~@forms)
      ~'it))
 
 
@@ -24,8 +30,8 @@
   [value ok fail]
   `(let [[~'it ~'error] (try [(do ~value) nil] (catch Exception x# [nil x#]))]
      (if ~'error
-       (do (try ~fail (catch Exception x#)) (throw ~'error))
-       (do (try ~ok   (catch Exception x#)) ~'it))))
+       (do (no-fail ~fail) (throw ~'error))
+       (do (no-fail ~ok)   ~'it))))
 
 
 

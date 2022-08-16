@@ -125,34 +125,58 @@
         id        (:id test-info)
         matches?  (matches-labels? include-labels exclude-labels)]
     (when (matches? test-info)
-      (try
-        (let [result (test)]
+      (swap! stats
+            (fn [stats]
+              (-> stats
+                (assoc-in  [*test-execution-id* id :test]       test-info)
+                (update-in [*test-execution-id* id :executions] (fnil inc 0)))))
+      (i/no-fail
+        (i/do-with-exception (test)
+          ;; OK
           (swap! stats
             (fn [stats]
               (-> stats
-                (update-in [*test-execution-id* id :executions] (fnil inc 0))
                 (update-in [*test-execution-id* id :success]    (fnil inc 0)))))
-          result)
-        (catch Exception x
+          ;; FAIL
           (swap! stats
             (fn [stats]
               (-> stats
-                (update-in [*test-execution-id* id :executions] (fnil inc  0))
-                (update-in [*test-execution-id* id :errors]     (fnil conj []) x)
+                (update-in [*test-execution-id* id :errors]     (fnil conj []) [error nil])
                 (update-in [*test-execution-id* id :failures]   (fnil inc  0))))))))))
 
 
+(defn- count-checks
+  [check-meta expression]
+  (let [line-ok   (if (:checkable? check-meta) :checks-ok :expressions-ok)
+        line-fail (if (:checkable? check-meta) :checks-fail :expressions-fail)]
+    (fn []
+      (i/do-with-exception (expression)
+        ;; ok
+        (swap! stats
+          (fn [stats]
+            (update-in stats
+              [*test-execution-id* (:id (:test check-meta)) line-ok]
+              (fnil inc 0))))
+        ;; fail
+        (swap! stats
+          (fn [stats]
+            (-> stats
+              (update-in
+                [*test-execution-id* (:id (:test check-meta)) line-fail]
+                (fnil inc 0))
+              (update-in
+                [*test-execution-id* (:id (:test check-meta)) :errors]
+                (fnil conj []) [error check-meta]))))))))
+
 
 (defn brief-summary
-  [test-execution-id]
-  (let [execution   (get @stats test-execution-id)
-        tests       (reduce + (map :executions         (vals execution)))
-        success     (reduce + (map #(:success % 0)     (vals execution)))
-        failures    (reduce + (map #(:failures % 0)    (vals execution)))
-        checks-ok   (reduce + (map #(:checks-ok % 0)   (vals execution)))
-        checks-fail (reduce + (map #(:checks-fail % 0) (vals execution)))]
-    {:test-execution-id test-execution-id
-     :tests  tests
+  [execution-stats]
+  (let [tests       (reduce + (map :executions         (vals execution-stats)))
+        success     (reduce + (map #(:success % 0)     (vals execution-stats)))
+        failures    (reduce + (map #(:failures % 0)    (vals execution-stats)))
+        checks-ok   (reduce + (map #(:checks-ok % 0)   (vals execution-stats)))
+        checks-fail (reduce + (map #(:checks-fail % 0) (vals execution-stats)))]
+    {:tests  tests
      :success success
      :failures failures
      :successful-checks checks-ok
@@ -179,24 +203,38 @@
 
 
 
-(defn- count-checks
-  [meta expression]
-  (if-not (:checkable? meta)
-    expression
-    (fn []
-      (i/do-with-exception (expression)
-        ;; ok
-        (swap! stats
-          (fn [stats]
-            (update-in stats
-              [*test-execution-id* (:id (:test meta)) :checks-ok]
-              (fnil inc 0))))
-        ;; fail
-        (swap! stats
-          (fn [stats]
-            (update-in stats
-              [*test-execution-id* (:id (:test meta)) :checks-fail]
-              (fnil inc 0))))))))
+(defn- print-failure
+  [test check error]
+  (println
+    (format
+      (str
+        "==================================[ FAILURE ]===================================\n"
+        "      TEST: %s\n"
+        "  TEST LOC: %s\n\n"
+        "EXPRESSION:\n\t%s\n\n"
+        "     ERROR:\n\t%s\n\n"
+        "================================================================================\n\n")
+      (:name test)
+      (:location test)
+      (str/join "\n\t" (map pr-str (:form check)))
+      (ex-message error))))
+
+
+
+(defn print-failures
+  [execution-stats]
+  (->> execution-stats
+    vals
+    (filter #(and (number? (:failures %)) (pos? (:failures %))))
+    (mapcat (fn [{:keys [errors test]}]
+              (for [[exception meta] (filter second errors)]
+                [test meta exception])))
+    (sort-by (juxt (comp :ns :test) (comp :location :test)))
+    (run! (partial apply print-failure))))
+
+
+
+
 
 
 
@@ -215,8 +253,8 @@
               #_(load-file absolute)
               (remove-ns (symbol ns))
               (require (symbol ns) :reload))))
-    ;; return brief summary
-    (i/do-with (brief-summary test-execution-id)
+    ;; return execution summary
+    (i/do-with (get @stats test-execution-id)
       (swap! stats dissoc test-execution-id))))
 
 
@@ -230,21 +268,25 @@
 
   (find-tests-files ["test"] :all nil)
 
-  (run-tests {:folders (project-dirs)
-              :include-patterns ["io.redefine.query-engine.rewrite.*"] #_:all
-              :exclude-labels [:container]})
+  (def execution-stats
+    (run-tests {:folders (project-dirs)
+                :include-patterns :all
+                :exclude-labels [:container]}))
+
+  (brief-summary execution-stats)
+
+  (print-failures execution-stats)
 
   stats
+  (def stats (atom {}))
 
   )
 
 
 ;;
-;; - TODO: count checks
 ;; - TODO: add test wrappers
 ;; - TODO: add reporters
 ;; - TODO: add remote runner
-;; - TODO: print failures
 ;; - TODO: hierarchical tests
 ;; -
 ;;
@@ -252,6 +294,8 @@
 
 (defn -main [& args]
   (let [config (merge {:folders (project-dirs)} (when (first args) (read-string (first args))))]
-    (let [{:keys [failures] :as summary} (run-tests config)]
+    (let [execution-stats (run-tests config)
+          {:keys [failures] :as summary} (brief-summary execution-stats)]
       (print-summary summary)
+      (print-failures execution-stats)
       (System/exit failures))))
