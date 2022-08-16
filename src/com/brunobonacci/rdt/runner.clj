@@ -1,5 +1,6 @@
 (ns com.brunobonacci.rdt.runner
   (:require [com.brunobonacci.rdt.internal :as i]
+            [com.brunobonacci.rdt.checkers :as chk]
             [where.core :refer [where]]
             [clojure.string :as str]
             [clojure.java.io :as io]
@@ -211,12 +212,12 @@
         "==================================[ FAILURE ]===================================\n"
         "      TEST: %s\n"
         "  TEST LOC: %s\n\n"
-        "EXPRESSION:\n\t%s\n\n"
+        "EXPRESSION:\n%s\n\n"
         "     ERROR:\n\t%s\n\n"
         "================================================================================\n\n")
       (:name test)
       (:location test)
-      (str/join "\n\t" (map pr-str (:form check)))
+      (str/join "\n" (map chk/display (:form check)))
       (ex-message error))))
 
 

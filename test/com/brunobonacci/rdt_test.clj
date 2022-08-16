@@ -162,8 +162,10 @@
     (tree-seq sequential? identity)
     (filter #(and (sequential? %) (= (first %) 'com.brunobonacci.rdt.internal/fact->checks)))
     first)
-  => '(com.brunobonacci.rdt.internal/fact->checks ((+ 1 1) => 2) ())
+  => (list 'com.brunobonacci.rdt.internal/fact->checks any? '((+ 1 1) => 2) ())
+
   )
+
 
 
 
@@ -176,7 +178,7 @@
     (tree-seq sequential? identity)
     (filter #(and (sequential? %) (= (first %) 'com.brunobonacci.rdt.internal/fact->checks)))
     first)
-  => '(com.brunobonacci.rdt.internal/fact->checks ((+ 1 1) => 2) ())
+  => (list 'com.brunobonacci.rdt.internal/fact->checks any? '((+ 1 1) => 2) ())
 
 
   (->>
@@ -218,9 +220,10 @@
     (tree-seq sequential? identity)
     (filter #(and (sequential? %) (= (first %) 'com.brunobonacci.rdt.internal/fact->checks)))
     first)
-  => '(com.brunobonacci.rdt.internal/fact->checks
-       ((+ 1 1) => 2)
-       ((println "all done!")))
+  => (list 'com.brunobonacci.rdt.internal/fact->checks
+      any?
+      '((+ 1 1) => 2)
+      '((println "all done!")))
 
 
 
@@ -236,9 +239,10 @@
     (tree-seq sequential? identity)
     (filter #(and (sequential? %) (= (first %) 'com.brunobonacci.rdt.internal/fact->checks)))
     first)
-  => '(com.brunobonacci.rdt.internal/fact->checks
-       ((+ 1 1) => 2)
-       ((println "all done!") :rdt/finalize (println "all done!2")))
+  => (list 'com.brunobonacci.rdt.internal/fact->checks
+      any?
+      '((+ 1 1) => 2)
+      '((println "all done!") :rdt/finalize (println "all done!2")))
 
   )
 
