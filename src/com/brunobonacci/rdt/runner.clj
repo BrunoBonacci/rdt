@@ -3,7 +3,8 @@
             [where.core :refer [where]]
             [clojure.string :as str]
             [clojure.java.io :as io]
-            [clojure.set :as set])
+            [clojure.set :as set]
+            [com.brunobonacci.mulog.flakes :as f])
   (:gen-class))
 
 
@@ -121,7 +122,7 @@
 (defmethod i/runner :batch-runner
   [{:keys [include-labels exclude-labels]} test]
   (let [test-info (test :test-info)
-        id        (:test-id test-info)
+        id        (:id test-info)
         matches?  (matches-labels? include-labels exclude-labels)]
     (when (matches? test-info)
       (try
@@ -144,44 +145,70 @@
 
 (defn brief-summary
   [test-execution-id]
-  (let [execution (get @stats test-execution-id)
-        tests    (reduce + (map :executions (vals execution)))
-        success   (reduce + (map #(:success % 0)  (vals execution)))
-        failures (reduce + (map #(:failures % 0) (vals execution)))]
+  (let [execution   (get @stats test-execution-id)
+        tests       (reduce + (map :executions         (vals execution)))
+        success     (reduce + (map #(:success % 0)     (vals execution)))
+        failures    (reduce + (map #(:failures % 0)    (vals execution)))
+        checks-ok   (reduce + (map #(:checks-ok % 0)   (vals execution)))
+        checks-fail (reduce + (map #(:checks-fail % 0) (vals execution)))]
     {:test-execution-id test-execution-id
      :tests  tests
      :success success
      :failures failures
+     :successful-checks checks-ok
+     :failed-checks checks-fail
      :success-rate (double (if (= tests 0) 0 (/ success tests)))}))
 
 
 
 (defn print-summary
-  [{:keys [tests success failures success-rate]}]
+  [{:keys [tests success failures success-rate successful-checks failed-checks]}]
   (println
     (format
       (str
         "\n"
         "==== Test summary ====\n"
-        " Total tests: %,6d\n"
-        "          OK: %,6d\n"
-        "      Failed: %,6d\n"
-        "Success rate:   %3.0f%%\n"
+        "  Total tests: %,6d\n"
+        "           OK: %,6d\n"
+        "       Failed: %,6d\n"
+        " Success rate:   %3.0f%%\n"
+        "    Checks OK: %,6d\n"
+        "Checks Failed: %,6d\n"
         "======================\n")
-      tests success failures (* success-rate 100.0))))
+      tests success failures (* success-rate 100.0) successful-checks failed-checks)))
 
 
 
 (defn run-tests
   [{:keys [folders include-patterns exclude-patterns runner test-execution-id include-labels exclude-labels]
-    :or {include-patterns :all exclude-patterns nil
-         include-labels   :all exclude-labels   nil
-         runner :batch-runner test-execution-id 1}}]
-  (binding [i/*runner*          {:type runner :include-labels include-labels :exclude-labels exclude-labels}
+    :or {include-patterns :all exclude-patterns  nil
+         include-labels   :all exclude-labels    nil
+         runner :batch-runner  test-execution-id (f/snowflake)}}]
+  (binding [i/*runner*          {:type runner :include-labels include-labels :exclude-labels exclude-labels
+                                 :expression-wrapper
+                                 (fn [meta expression]
+                                   (if-not (:checkable? meta)
+                                     expression
+                                     (fn []
+                                       (try
+                                         (let [result (expression)]
+                                           (swap! stats
+                                             (fn [stats]
+                                               (update-in stats
+                                                 [*test-execution-id* (:id (:test meta)) :checks-ok]
+                                                 (fnil inc 0))))
+                                           result)
+                                         (catch Exception x
+                                           (swap! stats
+                                             (fn [stats]
+                                               (update-in stats
+                                                 [*test-execution-id* (:id (:test meta)) :checks-fail]
+                                                 (fnil inc 0))))
+                                           (throw x))))))}
             *test-execution-id* test-execution-id]
     (->> (find-tests-files folders include-patterns exclude-patterns)
       (run! (fn [{:keys [ns]}]
-              (println "  (*) loading:" ns)
+              (println "  (*) Testing:" ns)
               #_(load-file absolute)
               (remove-ns (symbol ns))
               (require (symbol ns) :reload))))
@@ -203,13 +230,24 @@
 
   (find-tests-files ["test"] :all nil)
 
-  (run-tests {:folders (project-dirs) :include-patterns :all
+  (run-tests {:folders (project-dirs)
+              :include-patterns ["io.redefine.query-engine.rewrite.*"] #_:all
               :exclude-labels [:container]})
 
-
+  stats
 
   )
 
+
+;;
+;; - TODO: count checks
+;; - TODO: add test wrappers
+;; - TODO: add reporters
+;; - TODO: add remote runner
+;; - TODO: print failures
+;; - TODO: hierarchical tests
+;; -
+;;
 
 
 (defn -main [& args]

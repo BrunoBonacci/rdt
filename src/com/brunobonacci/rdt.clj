@@ -26,14 +26,14 @@
                     :name test-name
                     :location site)]
     `(i/eval-test
-       (let [~'test-id ~id ~'test-info ~cfg]
+       (let [test-id# ~id test-info# ~cfg]
          (fn
            ([cmd#]
             (case cmd#
-              :test-id   ~'test-id
-              :test-info ~'test-info))
+              :test-id   test-id#
+              :test-info test-info#))
            ([]
-            (i/fact->checks ~tests ~(mapcat identity finals))))))))
+            (i/fact->checks test-info# ~tests ~(mapcat identity finals))))))))
 
 
 

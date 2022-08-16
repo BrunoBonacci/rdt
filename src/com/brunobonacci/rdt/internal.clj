@@ -1,7 +1,14 @@
 (ns com.brunobonacci.rdt.internal
   (:require [where.core :refer [where]]
             [com.brunobonacci.rdt.checkers :as chk]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [com.brunobonacci.mulog :as u]))
+
+
+
+
+(def ^:dynamic *runner* {:type :inline :reporters [] :include-labels :all :exclude-labels nil
+                         :expression-wrapper (fn [meta expression] expression)})
 
 
 
@@ -54,9 +61,21 @@
 
 
 
+(defn execute-expression
+  [{:keys [expression-wrapper] :as cfg} [_ last-error :as last] expression* meta]
+  (if last-error
+    last
+    (let [expression (if expression-wrapper (expression-wrapper meta expression*) expression*)]
+      (try
+        [(expression) nil meta]
+        (catch Exception x
+          [nil x meta])))))
+
+
+
 (defn -wrap-statement
-  [last-sym meta forms ]
-  `(if (second ~last-sym) ~last-sym (try [(do ~forms) nil ~meta] (catch Exception x# [nil x# ~meta]))))
+  [config last-sym meta forms]
+  `(execute-expression ~config ~last-sym (fn [] ~forms) ~meta))
 
 
 
@@ -83,7 +102,7 @@
 
 
 (defn -statements->executable
-  [statements]
+  [test-info statements]
   (let [_last (gensym "_last_")
         def?  (where [:and [list? :is? true] [first :is? 'def]])
         defn? (where [:and [list? :is? true] [first :is? 'defn]])]
@@ -96,23 +115,24 @@
                           :def?  (def? left)
                           :defn? (defn? left)
                           :checking-symbol (list `quote (first checker*))
-                          :checking-funciton (second checker*)}]
+                          :checking-funciton (second checker*)
+                          :test test-info}]
 
                 (cond
                   (def? left)
-                  [[(second left) :as _last] (-wrap-statement _last meta (last left))]
+                  [[(second left) :as _last] (-wrap-statement *runner* _last meta (last left))]
 
                   (defn? left)
-                  [[(second left) :as _last] (-wrap-statement _last meta (cons `fn (rest left)))]
+                  [[(second left) :as _last] (-wrap-statement *runner* _last meta (cons `fn (rest left)))]
 
                   (and checkable? (= 'throws (first checker*)))
-                  [_last (-wrap-statement _last meta `(~(second checker*) ~(second right) (fn [] ~left)))]
+                  [_last (-wrap-statement *runner* _last meta `(~(second checker*) ~(second right) (fn [] ~left)))]
 
                   checkable?
-                  [_last (-wrap-statement _last meta `(~(second checker*) ~right (fn [] ~left)))]
+                  [_last (-wrap-statement *runner* _last meta `(~(second checker*) ~right (fn [] ~left)))]
 
                   :else ;; statement
-                  [_last (-wrap-statement _last meta left)]))
+                  [_last (-wrap-statement *runner* _last meta left)]))
               ))
       (#(conj % [_last `(if (second ~_last) (throw (second ~_last)) (first ~_last))]))
       (cons [_last nil]))))
@@ -122,12 +142,12 @@
 (comment
   (->> '((+ 2 1)  => 3)
     (-separate-statements)
-    (-statements->executable)
+    (-statements->executable {})
     )
 
   (->> '((/ 1 0)  => (throws Exception))
     (-separate-statements)
-    (-statements->executable)
+    (-statements->executable {})
     )
   )
 
@@ -135,10 +155,10 @@
 
 (defn -fact->checks
   {:no-doc true}
-  [body final]
+  [test-info body final]
   (->> body
     (-separate-statements)
-    (-statements->executable)
+    (-statements->executable test-info)
     ((fn [statements]
        `(let ~(vec (mapcat identity (drop-last 1 statements)))
           ;; finalizer
@@ -152,15 +172,15 @@
 
 (defmacro fact->checks
   {:no-doc true}
-  [body final]
-  (-fact->checks body final))
+  [test-info body final]
+  (-fact->checks test-info body final))
 
 
 
 (defmacro fact->checks2
   {:no-doc true}
   [& body]
-  (-fact->checks body '()))
+  (-fact->checks nil body '()))
 
 
 
@@ -231,9 +251,6 @@
     (str/replace #"__\d+#" "__#")
     (sha256)))
 
-
-
-(def ^:dynamic *runner* {:type :inline :reporters [] :include-labels :all :exclude-labels nil})
 
 
 (def runner nil)
