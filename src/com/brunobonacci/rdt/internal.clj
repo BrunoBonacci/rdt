@@ -6,9 +6,26 @@
 
 
 
+(def ^:dynamic *runner*
+  {:type :inline :reporters [] :include-labels :all :exclude-labels nil
+   :expression-wrapper (fn [meta expression] expression)})
 
-(def ^:dynamic *runner* {:type :inline :reporters [] :include-labels :all :exclude-labels nil
-                         :expression-wrapper (fn [meta expression] expression)})
+
+
+(defmacro do-with
+  [value & forms]
+  `(let [~'it ~value]
+     (try ~@forms (catch Exception x#))
+     ~'it))
+
+
+
+(defmacro do-with-exception
+  [value ok fail]
+  `(let [[~'it ~'error] (try [(do ~value) nil] (catch Exception x# [nil x#]))]
+     (if ~'error
+       (do (try ~fail (catch Exception x#)) (throw ~'error))
+       (do (try ~ok   (catch Exception x#)) ~'it))))
 
 
 
@@ -256,16 +273,20 @@
 (def runner nil)
 
 
+
 (defmulti runner (fn [{:keys [type]} test] type))
+
 
 
 (defmethod runner nil
   [_ test])
 
 
+
 (defmethod runner :inline
   [_ test]
   (test))
+
 
 
 (defn eval-test

@@ -179,32 +179,35 @@
 
 
 
+(defn- count-checks
+  [meta expression]
+  (if-not (:checkable? meta)
+    expression
+    (fn []
+      (i/do-with-exception (expression)
+        ;; ok
+        (swap! stats
+          (fn [stats]
+            (update-in stats
+              [*test-execution-id* (:id (:test meta)) :checks-ok]
+              (fnil inc 0))))
+        ;; fail
+        (swap! stats
+          (fn [stats]
+            (update-in stats
+              [*test-execution-id* (:id (:test meta)) :checks-fail]
+              (fnil inc 0))))))))
+
+
+
 (defn run-tests
   [{:keys [folders include-patterns exclude-patterns runner test-execution-id include-labels exclude-labels]
     :or {include-patterns :all exclude-patterns  nil
          include-labels   :all exclude-labels    nil
          runner :batch-runner  test-execution-id (f/snowflake)}}]
   (binding [i/*runner*          {:type runner :include-labels include-labels :exclude-labels exclude-labels
-                                 :expression-wrapper
-                                 (fn [meta expression]
-                                   (if-not (:checkable? meta)
-                                     expression
-                                     (fn []
-                                       (try
-                                         (let [result (expression)]
-                                           (swap! stats
-                                             (fn [stats]
-                                               (update-in stats
-                                                 [*test-execution-id* (:id (:test meta)) :checks-ok]
-                                                 (fnil inc 0))))
-                                           result)
-                                         (catch Exception x
-                                           (swap! stats
-                                             (fn [stats]
-                                               (update-in stats
-                                                 [*test-execution-id* (:id (:test meta)) :checks-fail]
-                                                 (fnil inc 0))))
-                                           (throw x))))))}
+                                 :expression-wrapper count-checks
+                                 }
             *test-execution-id* test-execution-id]
     (->> (find-tests-files folders include-patterns exclude-patterns)
       (run! (fn [{:keys [ns]}]
@@ -213,11 +216,8 @@
               (remove-ns (symbol ns))
               (require (symbol ns) :reload))))
     ;; return brief summary
-    (let [ret (brief-summary test-execution-id)]
-      ;; remove execution
-      (swap! stats dissoc test-execution-id)
-
-      ret)))
+    (i/do-with (brief-summary test-execution-id)
+      (swap! stats dissoc test-execution-id))))
 
 
 
