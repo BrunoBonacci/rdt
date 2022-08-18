@@ -14,26 +14,8 @@
   ```
   "
   [& forms]
-  (let [cfg       (if (map?    (first forms)) (first forms) {})
-        forms     (if (map?    (first forms)) (rest forms) forms)
-        test-name (if (string? (first forms)) (first forms) "REPL tests")
-        forms     (if (string? (first forms)) (rest forms) forms)
-        [tests _ & finals] (partition-by #{:rdt/finalize :rdt/finalise} forms)
-        {:keys [line column]} (meta &form)
-        site      (str *ns* "[l:" line ", c:" column "]")
-        id        (i/test-id &form)
-        cfg       (assoc cfg :id id :ns (str *ns*) :form (list `quote &form)
-                    :name test-name
-                    :location site)]
-    `(i/eval-test
-       (let [test-id# ~id test-info# ~cfg]
-         (fn
-           ([cmd#]
-            (case cmd#
-              :test-id   test-id#
-              :test-info test-info#))
-           ([]
-            (i/fact->checks test-info# ~tests ~(mapcat identity finals))))))))
+  `(i/eval-test
+     ~(i/generate-test-function forms *ns* &form)))
 
 
 

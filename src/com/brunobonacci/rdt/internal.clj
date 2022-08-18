@@ -7,8 +7,25 @@
 
 
 (def ^:dynamic *runner*
-  {:type :inline :reporters [] :include-labels :all :exclude-labels nil
-   :expression-wrapper (fn [meta expression] expression)})
+  {:type               :inline
+   :reporters          []
+   :include-labels     :all
+   :exclude-labels     nil
+
+
+   ;; internal
+   :test-wrapper       (fn [test-info test] test)
+   :expression-wrapper (fn [meta expression] expression)
+   :finalizer-wrapper  (fn [test-info finalizer] finalizer)})
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                                                            ;;
+;;                         ----==| U T I L S |==----                          ;;
+;;                                                                            ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 
@@ -35,14 +52,142 @@
 
 
 
+(defn sha256
+  "hex encoded sha-256 hash"
+  [^String data]
+  (let [md        (java.security.MessageDigest/getInstance "SHA-256")
+        signature (.digest md (.getBytes data "utf-8"))
+        size      (* 2 (.getDigestLength md))
+        hex-sig   (.toString (BigInteger. 1 signature) 16)
+        padding   (str/join (repeat (- size (count hex-sig)) "0"))]
+    (str padding hex-sig)))
+
+
+
+(defn test-id
+  [form]
+  (-> form
+    (pr-str)
+    (str/replace #"__\d+#" "__#")
+    (sha256)))
+
+
+
+(defmacro thunk
+  [& body]
+  `(fn [] ~@body))
+
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                                                            ;;
 ;;                ----==| T E R M   R E W R I T I N G |==----                 ;;
 ;;                                                                            ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; the strategy is to turn something like
+;;
+;; ```
+;; (repl-test "foo"
+;;
+;;   (def foo (make-foo 1 2 3))                 ;; def expression
+;;   (foo 1) => {:some-val 100}                 ;; checking expression
+;;
+;;   :rdt/finalize
+;;   (shutdown foo)                             ;; finalizer
+;;   )                                          ;; to be run whether the test pass or fail
+;; ```
+;;
+;; into something like that
+;;
+;; ````
+;; (let [;; prehamble
+;;       root {}
+;;       parent-test test
+;;       test (inherit parent-test {,,, test-info})
+;;       last nil
+;;
+;;       ;; (def foo (make-foo 1 2 3))
+;;       expression-meta {,,,, :test test-info}
+;;       expression      (wrap expression-meta (fn [] (make-foo 1 2 3)))
+;;       try-expression  (fn [] (try (assoc expression-meta :result (expression))
+;;                                  (catch Exception x (assoc expression-meta :error x))))
+;;       {foo :result :as last} (if (error? last) last (try-expression))
+;;
+;;       ;; (foo 1) => {:some-val 100}
+;;       expression-meta {,,,, :test test-info}
+;;       expression      (wrap expression-meta (fn [] (checker {:some-val 100} (fn [] (foo 1)))))
+;;       try-expression  (fn [] (try (assoc expression-meta :result (expression))
+;;                                  (catch Exception x (assoc expression-meta :error x))))
+;;       last            (if (error? last) last (try-expression))
+;;       ]
+;;
+;;   (no-fail
+;;     (shutdown foo))
+;;   (if (error? last)
+;;     (throw (error last))
+;;     (value last)))
+;; ```
+;;
 
-(defn -separate-statements
+;; the first step is to separate the expressions fromt he finalizer (if present).
+;; And the test info map
+
+
+(defn extract-finalizer
+  "returns [expressions finalizer]"
+  [forms]
+  (let [[expressions _ & finalizer] (partition-by #{:rdt/finalize :rdt/finalise} forms)]
+    [expressions (mapcat identity finalizer)]))
+
+
+
+(defn extract-test-info
+  "returns [cfg expressions finalizer]"
+  [forms captured-ns captured-form]
+  (let [cfg       (if (map?    (first forms)) (first forms) {})
+        forms     (if (map?    (first forms)) (rest forms) forms)
+        test-name (if (string? (first forms)) (first forms) "REPL tests")
+        forms     (if (string? (first forms)) (rest forms) forms)
+        [expressions finalizer] (extract-finalizer forms)
+        {:keys [line column]} (meta captured-form)
+        site      (str *ns* "[l:" line ", c:" column "]")
+        id        (test-id captured-form)
+        cfg       (assoc cfg :id id :ns (str captured-ns) :form (list `quote captured-form)
+                    :name test-name
+                    :location site)]
+    [cfg expressions finalizer])
+  )
+
+
+
+(comment
+
+  (defmacro dummy [& forms]
+    `(do ~(extract-test-info forms *ns* &form)))
+
+  (dummy {:labels [:bar]} "foo"
+
+    (def foo (make-foo 1 2 3))                 ;; def expression
+    (foo 1) => {:some-val 100}                 ;; checking expression
+
+    :rdt/finalize
+    (shutdown foo)                             ;; finalizer
+    )                                          ;; to be run whether the test pass or fail
+
+  )
+
+
+
+;;
+;; The second step is to separate the expressions into triples of the form
+;; `[expression => value]` if there is a checking arrow. if there is no
+;; checking arrow then the expression is simply `[expression]`
+;;
+;;
+
+
+(defn -separate-expressions
   [body]
   (->>
     (concat body [:rdt/void])
@@ -64,7 +209,7 @@
 
 
 (comment
-  (-separate-statements
+  (-separate-expressions
     '(:ok
       (def foo 1)
       (def bar 2)
@@ -84,23 +229,10 @@
 
 
 
-(defn execute-expression
-  [{:keys [expression-wrapper] :as cfg} [_ last-error :as last] expression* meta]
-  (if last-error
-    last
-    (let [expression (if expression-wrapper (expression-wrapper meta expression*) expression*)]
-      (try
-        [(expression) nil meta]
-        (catch Exception x
-          [nil x meta])))))
-
-
-
-(defn -wrap-statement
-  [config last-sym meta forms]
-  `(execute-expression ~config ~last-sym (fn [] ~forms) ~meta))
-
-
+;;
+;; Next step is to turn expressions into a map which contains all the information about the
+;; test, the check and the actual expression.
+;;
 
 (defn checker
   [[left test right :as triplet]]
@@ -124,106 +256,256 @@
 
 
 
-(defn -statements->executable
-  [test-info statements]
+(defn -expressions->meta-expr
+  [test-sym expressions]
   (let [_last (gensym "_last_")
         def?  (where [:and [list? :is? true] [first :is? 'def]])
-        defn? (where [:and [list? :is? true] [first :is? 'defn]])]
-    (->> statements
-      (mapv (fn [[left test right :as triplet]]
+        defn? (where [:and [list? :is? true] [first :is? 'defn]])
+        as-tunk (fn [expression] `(fn [] ~expression))]
+    (->> expressions
+      (mapv (fn [index [left test right :as triplet]]
               (let [checkable? (not (nil? test))
                     checker* (checker triplet)
                     meta {:form (list `quote (vec triplet))
+                          :index index
                           :checkable? checkable?
-                          :def?  (def? left)
-                          :defn? (defn? left)
+                          :defx?  (when (or (def? left) (defn? left)) (second left))
                           :checking-symbol (list `quote (first checker*))
                           :checking-funciton (second checker*)
-                          :test test-info}]
+                          :expression (cond
+                                        (def? left)
+                                        (as-tunk (last left))
 
-                (cond
-                  (def? left)
-                  [[(second left) :as _last] (-wrap-statement *runner* _last meta (last left))]
+                                        (defn? left)
+                                        (as-tunk (cons `fn (rest left)))
 
-                  (defn? left)
-                  [[(second left) :as _last] (-wrap-statement *runner* _last meta (cons `fn (rest left)))]
+                                        (and checkable? (= 'throws (first checker*)))
+                                        (as-tunk `(~(second checker*) ~(second right) (fn [] ~left)))
 
-                  (and checkable? (= 'throws (first checker*)))
-                  [_last (-wrap-statement *runner* _last meta `(~(second checker*) ~(second right) (fn [] ~left)))]
+                                        checkable?
+                                        (as-tunk `(~(second checker*) ~right (fn [] ~left)))
 
-                  checkable?
-                  [_last (-wrap-statement *runner* _last meta `(~(second checker*) ~right (fn [] ~left)))]
+                                        :else ;; simple expression
+                                        (as-tunk left))
+                          :test test-sym}]
 
-                  :else ;; statement
-                  [_last (-wrap-statement *runner* _last meta left)]))
-              ))
-      (#(conj % [_last `(if (second ~_last) (throw (second ~_last)) (first ~_last))]))
-      (cons [_last nil]))))
+                meta)) (range)))))
 
 
 
 (comment
-  (->> '((+ 2 1)  => 3)
-    (-separate-statements)
-    (-statements->executable {})
+  (->> '((println "hello")
+       (def foo 1)
+       (+ 2 foo)  => 3)
+    (-separate-expressions)
+    (-expressions->meta-expr 'my-test)
     )
 
   (->> '((/ 1 0)  => (throws Exception))
-    (-separate-statements)
-    (-statements->executable {})
+    (-separate-expressions)
+    (-expressions->meta-expr 'my-test)
     )
   )
 
 
 
-(defn -fact->checks
-  {:no-doc true}
-  [test-info body final]
-  (->> body
-    (-separate-statements)
-    (-statements->executable test-info)
-    ((fn [statements]
-       `(let ~(vec (mapcat identity (drop-last 1 statements)))
-          ;; finalizer
-          (try ~@final (catch Exception fx#
-                         ;; TODO: use mulog
-                         (println "Failed to execute finalizer due to" (ex-message fx#))))
-          ;; last statement value
-          ~(->> statements (take-last 1) first second))))))
+;;
+;;
+;; Now, before the final step we need to enrich the tests by adding
+;; the runtime wrappers around the test and all expressions.
+;; wrappers are used to record stats and report
+
+
+(defn -wrap-expressions
+  [expr-sym expressions]
+  (->> expressions
+    (map (fn [{:keys [expression] :as expr}]
+           (assoc expr :expression (list `-wrap-expression `*runner* expr-sym expression))))))
 
 
 
-(defmacro fact->checks
-  {:no-doc true}
-  [test-info body final]
-  (-fact->checks test-info body final))
+(defn -wrap-expression
+  [runner meta expression]
+  (if-let [wrapper (:expression-wrapper runner)]
+    (wrapper meta expression)
+    expression))
 
 
 
-(defmacro fact->checks2
-  {:no-doc true}
-  [& body]
-  (-fact->checks nil body '()))
+(defn -wrap-test-finalizer
+  [runner test-info finalizer]
+  (if-let [wrapper (:finalizer-wrapper runner)]
+    (wrapper test-info finalizer)
+    finalizer))
+
+
+
+(defn -wrap-test
+  [runner test-info test]
+  (if-let [wrapper (:test-wrapper runner)]
+    (wrapper test-info test)
+    test))
+
+
+
+(comment
+  (->> '((println "hello")
+       (def foo 1)
+       (+ 2 foo)  => 3)
+    (-separate-expressions)
+    (-expressions->meta-expr 'my-test)
+    (-wrap-expressions 'expr)
+    )
+
+  )
+
+
+
+;;
+;; Finally, expanding the expressions into a let binding
+;;
+
+;; map accessors
+(def error? :error)
+
+
+
+(def error  :error)
+
+
+
+(def value  :result)
+
+
+
+(defn -expand-expression
+  [last-sym expr-sym try-sym {:keys [defx? expression] :as expr}]
+  [expr-sym (-> expr (dissoc :expression) (update :defx? (fn [sym] (and sym (list `quote sym)))))
+   try-sym  `(fn [] (try (assoc ~expr-sym :result (~expression))
+                        (catch Exception x# (assoc ~expr-sym :error x#))))
+   (if defx? {defx? :result :as last-sym} last-sym) `(if (error? ~last-sym) ~last-sym (~try-sym))]
+  )
+
+
+
+(defn -expand-expressions
+  [_test _last _expr _try-exp expressions]
+  (->> expressions
+    (-separate-expressions)
+    (-expressions->meta-expr _test)
+    (-wrap-expressions _expr)
+    (mapcat (partial -expand-expression _last _expr _try-exp)))
+  )
+
+
+
+(comment
+  (->> '((println "hello")
+       (def foo 1)
+       (+ 2 foo)  => 3)
+    (-expand-expressions {} 'last 'expr 'try-expr))
+
+  )
+
+
+
+(defn -generate-prehamble
+  [last-sym test-sym test-info]
+  [test-sym test-info
+   last-sym nil])
+
+
+
+(defn -generate-let-body
+  [last-sym _test-sym finalizer-expr]
+  `(do
+     ;; run finalizer if present
+     (no-fail
+       ((-wrap-test-finalizer ~`*runner* ~_test-sym (thunk ~@finalizer-expr))))
+     ;; return result
+     (if (error? ~last-sym)
+       (throw (error ~last-sym))
+       (value ~last-sym))))
+
+
+
+(defn -generate-let
+  [test-info expressions finalizer]
+  (let [_test      (gensym "_test_")
+        _last      (gensym "_last_")
+        _expr      (gensym "_expr_")
+        _try-expr  (gensym "_try-expr_")]
+    `(let [;; prehamble
+           ~@(-generate-prehamble _last _test test-info)
+
+           ;; expressions
+           ~@(-expand-expressions _test _last _expr _try-expr expressions)]
+
+       ;; finalizer and result
+       ~(-generate-let-body _last _test finalizer))))
+
+
+
+(comment
+  (-generate-let
+    {:name "test foo"}
+    '((println "hello")
+      (def foo 1)
+      (+ 2 foo)  => 3)
+    '((println "done")))
+
+  )
+
+
+
+(defn generate-test-function
+  [forms captured-ns captured-form]
+  (let [[test-info expressions finalizer] (extract-test-info forms captured-ns captured-form)]
+    `(fn ~'this-test
+       ([cmd#]
+        (case cmd#
+          :test-id   ~(:id test-info)
+          :test-info ~test-info))
+       ([]
+        ((-wrap-test ~`*runner* (~'this-test :test-info)
+           (fn []
+             ~(-generate-let test-info expressions finalizer))))))))
 
 
 
 (comment
 
+  (defmacro repl-test
+    [& forms]
+    `(~(generate-test-function forms *ns* &form)))
 
-  (fact->checks2
+
+  (repl-test "testing addition"
+
+    (+ 1 1) =>  2
+    :rdt/finalize
+    (println "DONE")
+    )
+
+  (repl-test
+    (def foo 1)
+    (+ foo 1) =>  2)
+
+
+  (repl-test
     (defn foo [n] (* n 2))
     (foo 3) => 6)
 
-  (fact->checks2
+  (repl-test
     (def foo 1))
 
-  (fact->checks2
+  (repl-test
     (+ 1 2) => 3.0)
 
-  (fact->checks2
+  (repl-test
     (+ 1 2) ==> 3.0)
 
-  (fact->checks2
+  (repl-test
     :ok
     (def foo 1)
     (def bar 2)
@@ -232,7 +514,9 @@
     (println bar)
 
     (+ foo bar)  => 3
-    (/ foo 0)
+
+    ;;(/ foo 0)
+
     (def foo 2)
     (println (+ foo bar))
 
@@ -250,33 +534,13 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                                                            ;;
-;;                      ----==| R E G I S T R Y |==----                       ;;
+;;                        ----==| R U N N E R |==----                         ;;
 ;;                                                                            ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(defn sha256
-  "hex encoded sha-256 hash"
-  [^String data]
-  (let [md        (java.security.MessageDigest/getInstance "SHA-256")
-        signature (.digest md (.getBytes data "utf-8"))
-        size      (* 2 (.getDigestLength md))
-        hex-sig   (.toString (BigInteger. 1 signature) 16)
-        padding   (str/join (repeat (- size (count hex-sig)) "0"))]
-    (str padding hex-sig)))
 
-
-
-(defn test-id
-  [form]
-  (-> form
-    (pr-str)
-    (str/replace #"__\d+#" "__#")
-    (sha256)))
-
-
-
-(def runner nil)
+(def runner nil)  ;; for repl development
 
 
 
@@ -292,6 +556,12 @@
 (defmethod runner :inline
   [_ test]
   (test))
+
+
+
+(defmethod runner :rdt/test-runner
+  [_ test]
+  test)
 
 
 
