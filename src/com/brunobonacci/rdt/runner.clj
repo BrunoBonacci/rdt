@@ -311,6 +311,7 @@
 ;; - TODO: add remote runner
 ;; - TODO: hierarchical tests
 ;; - TODO: externalize defaults
+;; - TODO: better cmd line handling
 
 
 (defn -main [& args]

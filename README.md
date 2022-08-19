@@ -10,11 +10,8 @@ low structure, easy to debug when they fail because they are just REPL
 sessions. _This library favours tests readability over design
 purity._
 
-RDT is piggybacking on top of the great work of **Midje** adding a
-couple of features for readability. I don't know whether it will always
-depend on Midje, or whether in the future it might just be its own
-thing, but for the moment it does internally use it, so the tooling
-compatible with Midje will (generally) be compatible with RDT as well.
+RDT is heavily inspired on **Midje** adding a couple of features for
+code readability..
 
 **WORK IN PROGRESS:** Some behaviours might change.
 
@@ -181,6 +178,37 @@ The general form is:
 
 The left side of the arrow `=>` is the function you want to test, the
 right side of the arrow is the value or pattern you expect.
+
+
+#### Finalizers
+
+Oftentimes at the end of your test you need to run a function
+to cleanup after the test execution whether the test was successful
+or not. For this case we have the finalizers support:
+
+``` clojure
+(repl-test "test with finalizer"
+
+    (def services (starup-services {}))
+
+    (function1 services arg2 arg3) => expected-value1
+
+    (function2 services arg2 arg3) => expected-value2
+
+    (functionN services arg2 arg3) => expected-valueN
+
+    ;; add your finalization code after the `:rdt/finalize` keyword
+    ;; the following code will be executed in any case.
+    :rdt/finalize
+    (shutdown services)
+    (cleanup  services)
+ )
+```
+
+Just add the `:rdt/finalize` followed by the expressions which will be
+evaluated at the end of the test execution, whether the test was
+successful or not.
+
 
 ### Fuzzy matching arrow `=>`
 
@@ -386,16 +414,16 @@ For example:
 
 ``` bash
 # run only :core tests
-lein midje :filter core
+lein run '{:include-labels [:core]}'
 
 # skip :slow tests
-lein midje :filter -slow
+lein run '{:exclude-labels [:slow]}'
 
 
 # run :core tests, but skip integration
-lein midje :filter core -integration
+lein run '{:include-labels [:core] :exclude-labels [:integration]}'
 ```
 
 ## License
 
-Copyright © 2021 Bruno Bonacci - Distributed under the [Apache License v2.0](http://www.apache.org/licenses/LICENSE-2.0)
+Copyright © 2021-2022 Bruno Bonacci - Distributed under the [Apache License v2.0](http://www.apache.org/licenses/LICENSE-2.0)
