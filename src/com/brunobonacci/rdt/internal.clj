@@ -7,6 +7,8 @@
 
 (def ^:dynamic *runner*
   {:type               :inline
+
+   ;; used in  bacth-runner
    :reporters          []
 
    :include-patterns   :all
@@ -16,8 +18,8 @@
    :exclude-labels      nil
 
    ;; wrappers
-   :test-wrappers       [:rdt/print-test-outcome]
-   :expression-wrappers []
+   :test-wrappers       [:rdt/stats-count-tests :rdt/print-test-outcome]
+   :expression-wrappers [:rdt/stats-count-checks]
    :finalizer-wrappers  []
 
 

@@ -96,10 +96,6 @@
 ;;                                                                            ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def stats (atom {}))
-
-
-
 (def ^:dynamic *test-execution-id* nil)
 
 
@@ -123,51 +119,13 @@
 (defmethod i/runner :batch-runner
   [{:keys [include-labels exclude-labels]} test]
   (let [test-info (test :test-info)
-        id        (:id test-info)
         matches?  (matches-labels? include-labels exclude-labels)]
     (when (matches? test-info)
-      (swap! stats
-            (fn [stats]
-              (-> stats
-                (assoc-in  [*test-execution-id* id :test]       test-info)
-                (update-in [*test-execution-id* id :executions] (fnil inc 0)))))
       (i/no-fail
-        (i/do-with-exception (test)
-          ;; OK
-          (swap! stats
-            (fn [stats]
-              (-> stats
-                (update-in [*test-execution-id* id :success]    (fnil inc 0)))))
-          ;; FAIL
-          (swap! stats
-            (fn [stats]
-              (-> stats
-                (update-in [*test-execution-id* id :errors]     (fnil conj []) [$error nil])
-                (update-in [*test-execution-id* id :failures]   (fnil inc  0))))))))))
+        (test)))))
 
 
-(defn- count-checks
-  [check-meta expression]
-  (let [line-ok   (if (:checkable? check-meta) :checks-ok :expressions-ok)
-        line-fail (if (:checkable? check-meta) :checks-fail :expressions-fail)]
-    (fn []
-      (i/do-with-exception (expression)
-        ;; ok
-        (swap! stats
-          (fn [stats]
-            (update-in stats
-              [*test-execution-id* (:id (:test check-meta)) line-ok]
-              (fnil inc 0))))
-        ;; fail
-        (swap! stats
-          (fn [stats]
-            (-> stats
-              (update-in
-                [*test-execution-id* (:id (:test check-meta)) line-fail]
-                (fnil inc 0))
-              (update-in
-                [*test-execution-id* (:id (:test check-meta)) :errors]
-                (fnil conj []) [$error check-meta]))))))))
+
 
 
 
@@ -201,7 +159,61 @@
     (fn []
       (i/do-with-exception (test)
         (println "\t- Checking: " name "-> OK")
-        (println "\t- Checking: " name "-> FAILED")))))
+        (println "\t- Checking: " name "-> FAILED" (ex-message $error))))))
+
+
+
+(def stats (atom {}))
+
+
+
+(defmethod wrapper-factory [:test :rdt/stats-count-tests]
+  [_]
+  (fn [{:keys [id] :as test-info} test]
+    (swap! stats
+      (fn [stats]
+        (-> stats
+          (assoc-in  [*test-execution-id* id :test]       test-info)
+          (update-in [*test-execution-id* id :executions] (fnil inc 0)))))
+
+    (i/do-with-exception (test)
+      ;; OK
+      (swap! stats
+        (fn [stats]
+          (-> stats
+            (update-in [*test-execution-id* id :success]    (fnil inc 0)))))
+      ;; FAIL
+      (swap! stats
+        (fn [stats]
+          (-> stats
+            (update-in [*test-execution-id* id :errors]     (fnil conj []) [$error nil])
+            (update-in [*test-execution-id* id :failures]   (fnil inc  0))))))))
+
+
+
+(defmethod wrapper-factory [:expression :rdt/stats-count-checks]
+  [_]
+  (fn [check-meta expression]
+    (let [line-ok   (if (:checkable? check-meta) :checks-ok :expressions-ok)
+          line-fail (if (:checkable? check-meta) :checks-fail :expressions-fail)]
+      (fn []
+        (i/do-with-exception (expression)
+          ;; ok
+          (swap! stats
+            (fn [stats]
+              (update-in stats
+                [*test-execution-id* (:id (:test check-meta)) line-ok]
+                (fnil inc 0))))
+          ;; fail
+          (swap! stats
+            (fn [stats]
+              (-> stats
+                (update-in
+                  [*test-execution-id* (:id (:test check-meta)) line-fail]
+                  (fnil inc 0))
+                (update-in
+                  [*test-execution-id* (:id (:test check-meta)) :errors]
+                  (fnil conj []) [$error check-meta])))))))))
 
 
 
@@ -220,7 +232,7 @@
       (map (fn [w]
              (if (map? w)
                (assoc w :level level)
-               {:level :test :name w})))
+               {:level level :name w})))
       (map wrapper-factory)
       (compose-wrappers meta target))))
 
