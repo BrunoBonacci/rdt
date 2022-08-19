@@ -1,11 +1,11 @@
 (ns com.brunobonacci.rdt.runner
-  (:require [com.brunobonacci.rdt.internal :as i]
-            [com.brunobonacci.rdt.checkers :as chk]
+  (:require [com.brunobonacci.rdt.internal  :as i]
+            [com.brunobonacci.rdt.reporters :as rep]
+            [com.brunobonacci.mulog.flakes  :as f]
             [where.core :refer [where]]
             [clojure.string :as str]
             [clojure.java.io :as io]
-            [clojure.set :as set]
-            [com.brunobonacci.mulog.flakes :as f])
+            [clojure.set :as set])
   (:gen-class))
 
 
@@ -247,72 +247,6 @@
 
 
 
-(defn brief-summary
-  [execution-stats]
-  (let [tests       (reduce + (map :executions         (vals execution-stats)))
-        success     (reduce + (map #(:success % 0)     (vals execution-stats)))
-        failures    (reduce + (map #(:failures % 0)    (vals execution-stats)))
-        checks-ok   (reduce + (map #(:checks-ok % 0)   (vals execution-stats)))
-        checks-fail (reduce + (map #(:checks-fail % 0) (vals execution-stats)))]
-    {:tests  tests
-     :success success
-     :failures failures
-     :successful-checks checks-ok
-     :failed-checks checks-fail
-     :success-rate (double (if (= tests 0) 0 (/ success tests)))}))
-
-
-
-(defn print-summary
-  [{:keys [tests success failures success-rate successful-checks failed-checks]}]
-  (println
-    (format
-      (str
-        "\n"
-        "==== Test summary ====\n"
-        "  Total tests: %,6d\n"
-        "           OK: %,6d\n"
-        "       Failed: %,6d\n"
-        " Success rate:   %3.0f%%\n"
-        "    Checks OK: %,6d\n"
-        "Checks Failed: %,6d\n"
-        "======================\n")
-      tests success failures (* success-rate 100.0) successful-checks failed-checks)))
-
-
-
-(defn- print-failure
-  [test check error]
-  (println
-    (format
-      (str
-        "==================================[ FAILURE ]===================================\n"
-        "      TEST: %s\n"
-        "  TEST LOC: %s\n\n"
-        "EXPRESSION:\n%s\n\n"
-        "     ERROR:\n\t%s\n\n"
-        "================================================================================\n\n")
-      (:name test)
-      (:location test)
-      (str/join "\n" (map chk/display (:form check)))
-      (ex-message error))))
-
-
-
-(defn print-failures
-  [execution-stats]
-  (->> execution-stats
-    vals
-    (filter #(and (number? (:failures %)) (pos? (:failures %))))
-    (mapcat (fn [{:keys [errors test]}]
-              (for [[exception meta] (filter second errors)]
-                [test meta exception])))
-    (sort-by (juxt (comp :ns :test) (comp :location :test)))
-    (run! (partial apply print-failure))))
-
-
-
-
 (defn- apply-defaults
   [runner-config]
   (-> (merge i/*runner* {:type :batch-runner} runner-config)
@@ -355,9 +289,7 @@
                 :include-patterns :all
                 :exclude-labels [:container]}))
 
-  (brief-summary execution-stats)
-
-  (print-failures execution-stats)
+  (rep/brief-summary execution-stats)
 
   stats
   (def stats (atom {}))
@@ -376,18 +308,17 @@
 
 
 ;;
-;; - TODO: add test wrappers
-;; - TODO: add reporters
 ;; - TODO: add remote runner
 ;; - TODO: hierarchical tests
-;; -
-;;
+;; - TODO: externalize defaults
 
 
 (defn -main [& args]
-  (let [config (merge {:folders (project-dirs)} (when (first args) (read-string (first args))))
-        execution-stats (run-tests config)
-        {:keys [failures] :as summary} (brief-summary execution-stats)]
-    (print-summary summary)
-    (print-failures execution-stats)
+  (let [config (apply-defaults
+                 (merge {:folders (project-dirs)}
+                   (when (first args) (read-string (first args)))))
+        execution-stats    (run-tests config)
+        reporters          (rep/compile-reporters (:reporters config))
+        {:keys [failures]} (rep/brief-summary execution-stats)]
+    (reporters  execution-stats)
     (System/exit failures)))

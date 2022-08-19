@@ -9,7 +9,9 @@
   {:type               :inline
 
    ;; used in  bacth-runner
-   :reporters          []
+   :reporters
+   [:rdt/print-summary
+    :rdt/print-failures]
 
    :include-patterns   :all
    :exclude-patterns    nil
@@ -18,8 +20,15 @@
    :exclude-labels      nil
 
    ;; wrappers
-   :test-wrappers       [:rdt/stats-count-tests :rdt/print-test-outcome]
-   :expression-wrappers [:rdt/stats-count-checks]
+   :test-wrappers
+   [:rdt/stats-count-tests   ;; required for reporting
+    ;;:rdt/print-test-name
+    ;;:rdt/print-test-outcome
+    ]
+
+   :expression-wrappers
+   [:rdt/stats-count-checks ;; required for reporting
+    ]
    :finalizer-wrappers  []
 
 
