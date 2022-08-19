@@ -1,22 +1,30 @@
 (ns com.brunobonacci.rdt.internal
   (:require [where.core :refer [where]]
             [com.brunobonacci.rdt.checkers :as chk]
-            [clojure.string :as str]
-            [com.brunobonacci.mulog :as u]))
+            [clojure.string :as str]))
 
 
 
 (def ^:dynamic *runner*
   {:type               :inline
    :reporters          []
+
+   :include-patterns   :all
+   :exclude-patterns    nil
+
    :include-labels     :all
-   :exclude-labels     nil
+   :exclude-labels      nil
+
+   ;; wrappers
+   :test-wrappers       [:rdt/print-test-outcome]
+   :expression-wrappers []
+   :finalizer-wrappers  []
 
 
-   ;; internal
-   :test-wrapper       (fn [test-info test] test)
-   :expression-wrapper (fn [meta expression] expression)
-   :finalizer-wrapper  (fn [test-info finalizer] finalizer)})
+   ;; internal - overridden by compile-wrappers
+   :rdt/test-wrapper       (fn [test-info test] test)
+   :rdt/expression-wrapper (fn [meta expression] expression)
+   :rdt/finalizer-wrapper  (fn [test-info finalizer] finalizer)})
 
 
 
@@ -37,18 +45,18 @@
 
 (defmacro do-with
   [value & forms]
-  `(let [~'it ~value]
+  `(let [~'$it ~value]
      (no-fail ~@forms)
-     ~'it))
+     ~'$it))
 
 
 
 (defmacro do-with-exception
   [value ok fail]
-  `(let [[~'it ~'error] (try [(do ~value) nil] (catch Exception x# [nil x#]))]
-     (if ~'error
-       (do (no-fail ~fail) (throw ~'error))
-       (do (no-fail ~ok)   ~'it))))
+  `(let [[~'$it ~'$error] (try [(do ~value) nil] (catch Exception x# [nil x#]))]
+     (if ~'$error
+       (do (no-fail ~fail) (throw ~'$error))
+       (do (no-fail ~ok)   ~'$it))))
 
 
 
@@ -326,7 +334,7 @@
 
 (defn -wrap-expression
   [runner meta expression]
-  (if-let [wrapper (:expression-wrapper runner)]
+  (if-let [wrapper (:rdt/expression-wrapper runner)]
     (wrapper meta expression)
     expression))
 
@@ -334,7 +342,7 @@
 
 (defn -wrap-test-finalizer
   [runner test-info finalizer]
-  (if-let [wrapper (:finalizer-wrapper runner)]
+  (if-let [wrapper (:rdt/finalizer-wrapper runner)]
     (wrapper test-info finalizer)
     finalizer))
 
@@ -342,7 +350,7 @@
 
 (defn -wrap-test
   [runner test-info test]
-  (if-let [wrapper (:test-wrapper runner)]
+  (if-let [wrapper (:rdt/test-wrapper runner)]
     (wrapper test-info test)
     test))
 

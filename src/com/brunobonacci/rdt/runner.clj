@@ -142,7 +142,7 @@
           (swap! stats
             (fn [stats]
               (-> stats
-                (update-in [*test-execution-id* id :errors]     (fnil conj []) [error nil])
+                (update-in [*test-execution-id* id :errors]     (fnil conj []) [$error nil])
                 (update-in [*test-execution-id* id :failures]   (fnil inc  0))))))))))
 
 
@@ -167,7 +167,72 @@
                 (fnil inc 0))
               (update-in
                 [*test-execution-id* (:id (:test check-meta)) :errors]
-                (fnil conj []) [error check-meta]))))))))
+                (fnil conj []) [$error check-meta]))))))))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                                                            ;;
+;;                      ----==| W R A P P E R S |==----                       ;;
+;;                                                                            ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(def wrapper-factory nil)  ;; for repl development
+
+
+
+(defmulti wrapper-factory (fn [{:keys [level name]}] [level name]))
+
+
+
+(defmethod wrapper-factory [:test :rdt/print-test-name]
+  [_]
+  (fn [{:keys [name]} test]
+    (fn []
+      (println "\t- Checking: " name "...")
+      (test))))
+
+
+
+(defmethod wrapper-factory [:test :rdt/print-test-outcome]
+  [_]
+  (fn [{:keys [name]} test]
+    (fn []
+      (i/do-with-exception (test)
+        (println "\t- Checking: " name "-> OK")
+        (println "\t- Checking: " name "-> FAILED")))))
+
+
+
+(defn compose-wrappers
+  [meta target ws]
+  (->> (reverse ws)
+    (reduce (fn [t w] (w meta t))
+      target)))
+
+
+
+(defn- -compile-wrappers
+  [level wrappers]
+  (fn [meta target]
+    (->> wrappers
+      (map (fn [w]
+             (if (map? w)
+               (assoc w :level level)
+               {:level :test :name w})))
+      (map wrapper-factory)
+      (compose-wrappers meta target))))
+
+
+
+(defn compile-wrappers
+  [{:keys [test-wrappers expression-wrappers finalizer-wrappers] :as runner}]
+  (assoc runner
+    :rdt/test-wrapper       (-compile-wrappers :test       test-wrappers)
+    :rdt/expression-wrapper (-compile-wrappers :expression expression-wrappers)
+    :rdt/finalizer-wrapper  (-compile-wrappers :finalizer  finalizer-wrappers)))
+
 
 
 (defn brief-summary
@@ -236,27 +301,31 @@
 
 
 
+(defn- apply-defaults
+  [runner-config]
+  (-> (merge i/*runner* {:type :batch-runner} runner-config)
+    (assoc :test-execution-id (f/snowflake))))
+
 
 
 
 (defn run-tests
-  [{:keys [folders include-patterns exclude-patterns runner test-execution-id include-labels exclude-labels]
-    :or {include-patterns :all exclude-patterns  nil
-         include-labels   :all exclude-labels    nil
-         runner :batch-runner  test-execution-id (f/snowflake)}}]
-  (binding [i/*runner*          {:type runner :include-labels include-labels :exclude-labels exclude-labels
-                                 :expression-wrapper count-checks
-                                 }
-            *test-execution-id* test-execution-id]
-    (->> (find-tests-files folders include-patterns exclude-patterns)
-      (run! (fn [{:keys [ns]}]
-              (println "  (*) Testing:" ns)
-              #_(load-file absolute)
-              (remove-ns (symbol ns))
-              (require (symbol ns) :reload))))
-    ;; return execution summary
-    (i/do-with (get @stats test-execution-id)
-      (swap! stats dissoc test-execution-id))))
+  [runner-config]
+  (let [runner-config (apply-defaults runner-config)
+        runner-config (compile-wrappers runner-config)
+        {:keys [folders include-patterns exclude-patterns test-execution-id]} runner-config]
+
+    (binding [i/*runner*          runner-config
+              *test-execution-id* test-execution-id]
+      (->> (find-tests-files folders include-patterns exclude-patterns)
+        (run! (fn [{:keys [ns]}]
+                (println "  (*) Testing:" ns)
+                #_(load-file absolute)
+                (remove-ns (symbol ns))
+                (require (symbol ns) :reload))))
+      ;; return execution summary
+      (i/do-with (get @stats test-execution-id)
+        (swap! stats dissoc test-execution-id)))))
 
 
 
@@ -284,6 +353,16 @@
   )
 
 
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                                                            ;;
+;;                          ----==| M A I N |==----                           ;;
+;;                                                                            ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
 ;;
 ;; - TODO: add test wrappers
 ;; - TODO: add reporters
@@ -294,9 +373,9 @@
 
 
 (defn -main [& args]
-  (let [config (merge {:folders (project-dirs)} (when (first args) (read-string (first args))))]
-    (let [execution-stats (run-tests config)
-          {:keys [failures] :as summary} (brief-summary execution-stats)]
-      (print-summary summary)
-      (print-failures execution-stats)
-      (System/exit failures))))
+  (let [config (merge {:folders (project-dirs)} (when (first args) (read-string (first args))))
+        execution-stats (run-tests config)
+        {:keys [failures] :as summary} (brief-summary execution-stats)]
+    (print-summary summary)
+    (print-failures execution-stats)
+    (System/exit failures)))
