@@ -1,4 +1,4 @@
-(defn ver [] "0.4.0-SNAPSHOT")
+(defn ver [] "0.5.0-alpha1")
 (defn ts  [] (System/currentTimeMillis))
 (defn jdk [] (clojure.string/replace (str (System/getProperty "java.vm.vendor") "-" (System/getProperty "java.vm.version")) #" " "_"))
 
