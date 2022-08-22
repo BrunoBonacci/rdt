@@ -331,8 +331,8 @@
                     {:type :server-error :request message :response msg})
                   (receive-wrapper msg)))
               (catch Exception x
-                (ex-info x (str "CLIENT ERROR:" (ex-message x))
-                  {:type :celint-error :request message})))))
+                (ex-info (str "CLIENT ERROR:" (ex-message x))
+                  {:type :celint-error :request message} x)))))
 
         ;; close connection
         close (fn [{:keys [in out client] :as connection}]
