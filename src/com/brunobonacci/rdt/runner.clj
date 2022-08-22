@@ -1,78 +1,13 @@
 (ns com.brunobonacci.rdt.runner
   (:require [com.brunobonacci.rdt.internal  :as i]
             [com.brunobonacci.rdt.reporters :as rep]
+            [com.brunobonacci.rdt.utils     :as ut]
             [com.brunobonacci.mulog.flakes  :as f]
             [where.core :refer [where]]
-            [clojure.string :as str]
             [clojure.java.io :as io]
-            [clojure.set :as set])
+            [clojure.set :as set]
+            [babashka.process :as bp])
   (:gen-class))
-
-
-
-(defn- classpath
-  []
-  (-> (System/getProperty "java.class.path")
-    (str/split (re-pattern (System/getProperty "path.separator")))))
-
-
-
-(defn lazy-list-dir
-  [base]
-  (tree-seq
-    (memfn ^java.io.File isDirectory)
-    (memfn ^java.io.File listFiles)
-    (io/file base)))
-
-
-
-(defn lazy-list-files
-  [base]
-  (->> (lazy-list-dir base)
-    (filter (memfn ^java.io.File isFile))))
-
-
-
-(defn relative-path
-  [relative-to]
-  (let [^String base (.getCanonicalPath ^java.io.File (io/file relative-to))]
-    (fn [f]
-      (let [^String f (.getCanonicalPath ^java.io.File (io/file f))]
-        (if (str/starts-with? f base)
-          (subs f (inc (count base)))
-          f)))))
-
-
-
-(defn lazy-list-relative-files
-  [base]
-  (let [relative (relative-path base)]
-    (->> (lazy-list-files base)
-      (map (fn [f] {:base base :relative (relative f) :absolute (.getAbsolutePath ^java.io.File f)})))))
-
-
-
-(defn current-dir
-  []
-  (System/getProperty "user.dir"))
-
-
-
-(defn project-dirs
-  []
-  (->> (classpath)
-    (filter (fn [f] (.isDirectory (io/file f))))
-    (distinct)
-    (map (relative-path (current-dir)))))
-
-
-
-(defn- file-to-ns
-  [f]
-  (-> (str f)
-    (str/replace #"\.clj(s|c)?$" "")
-    (str/replace #"/" ".")
-    (str/replace #"_" "-")))
 
 
 
@@ -81,10 +16,10 @@
   (let [include-patterns (if (= include-patterns :all) [".*"] include-patterns)]
     (->> folders
       (filter (fn [f] (.isDirectory (io/file f))))
-      (mapcat lazy-list-relative-files)
+      (mapcat ut/lazy-list-relative-files)
       (distinct)
       (filter (where [:or [:relative :ends-with? "_test.clj"] [:relative :ends-with? "_test.cljc"]]))
-      (map (fn [{:keys [relative] :as m}] (assoc m :ns (file-to-ns relative))))
+      (map (fn [{:keys [relative] :as m}] (assoc m :ns (ut/file-to-ns relative))))
       (filter (fn [{:keys [ns]}] (some #(re-find (re-pattern %) ns) include-patterns)))
       (remove (fn [{:keys [ns]}] (some #(re-find (re-pattern %) ns) exclude-patterns))))))
 
@@ -126,9 +61,6 @@
 
 
 
-
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                                                            ;;
 ;;                      ----==| W R A P P E R S |==----                       ;;
@@ -159,7 +91,7 @@
     (fn []
       (i/do-with-exception (test)
         (println "\t- Checking: " name "-> OK")
-        (println "\t- Checking: " name "-> FAILED" (ex-message $error))))))
+        (println "\t- Checking: " name "-> FAILED" #_(ex-message $error))))))
 
 
 
@@ -254,8 +186,7 @@
 
 
 
-
-(defn run-tests
+(defn run-tests-local
   [runner-config]
   (let [runner-config (apply-defaults runner-config)
         runner-config (compile-wrappers runner-config)
@@ -275,17 +206,59 @@
 
 
 
+(defn child-process-cmd
+  [runner-config]
+  (let [runner-config (select-keys runner-config
+                        [:reporters :include-patterns :exclude-patterns
+                         :include-labels :exclude-labels :test-wrappers
+                         :expression-wrappers :finalizer-wrappers])
+        runner-config (assoc runner-config :type :batch-runner)
+        java-cmd (ut/java-base-command)
+        ;; add main
+        java-cmd (conj java-cmd "com.brunobonacci.rdt.runner")
+        ;; add args
+        java-cmd (conj java-cmd (pr-str (assoc runner-config :type :batch-runner)))]
+    java-cmd))
+
+
+
+(defn run-tests-child
+  [runner-config]
+  (let [cmd (child-process-cmd runner-config)
+        ;;_ (println cmd)
+        child (bp/process cmd {:out :string :err :string})]
+    (println "EXIT " (-> @child :exit))
+    #_(println " out " (-> @child :out))
+    #_(println " err " (-> @child :err))
+    {}
+    )
+  )
+
+
+
+
+(defn run-tests
+  [runner-config]
+  (let [runner-config (apply-defaults runner-config)
+        runner-config (compile-wrappers runner-config)
+        {:keys [type folders include-patterns exclude-patterns test-execution-id]} runner-config]
+    ;; TODO: fix this
+    (if (= :sub-runner type)
+      (run-tests-child runner-config)
+      (run-tests-local runner-config))))
+
+
+
 (comment
 
+  (ut/project-dirs)
 
-  (project-dirs)
-
-  (find-tests-files (project-dirs) :all nil)
+  (find-tests-files (ut/project-dirs) :all nil)
 
   (find-tests-files ["test"] :all nil)
 
   (def execution-stats
-    (run-tests {:folders (project-dirs)
+    (run-tests {:folders (ut/project-dirs)
                 :include-patterns :all
                 :exclude-labels [:container]}))
 
@@ -295,7 +268,6 @@
   (def stats (atom {}))
 
   )
-
 
 
 
@@ -312,11 +284,15 @@
 ;; - TODO: hierarchical tests
 ;; - TODO: externalize defaults
 ;; - TODO: better cmd line handling
+;; - TODO: documentation
+;; - TODO: markdown reporter
+;; - TODO: add mulog wrapper
+;; - TODO:
 
 
 (defn -main [& args]
   (let [config (apply-defaults
-                 (merge {:folders (project-dirs)}
+                 (merge {:folders (ut/project-dirs)}
                    (when (first args) (read-string (first args)))))
         execution-stats    (run-tests config)
         reporters          (rep/compile-reporters (:reporters config))

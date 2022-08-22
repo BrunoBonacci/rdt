@@ -1,4 +1,4 @@
-(defn ver [] "0.5.0-alpha1")
+(defn ver [] "0.5.0-alpha2")
 (defn ts  [] (System/currentTimeMillis))
 (defn jdk [] (clojure.string/replace (str (System/getProperty "java.vm.vendor") "-" (System/getProperty "java.vm.version")) #" " "_"))
 
@@ -14,7 +14,9 @@
 
   :dependencies [[org.clojure/clojure "1.11.1"]
                  [com.brunobonacci/where "0.5.6"]
-                 [com.brunobonacci/mulog "0.9.0"]]
+                 [com.brunobonacci/mulog "0.9.0"]
+                 [babashka/process "0.1.7"]
+                 [com.taoensso/nippy "3.2.0"]]
 
   :global-vars {*warn-on-reflection* true}
 
