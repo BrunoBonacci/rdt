@@ -1,5 +1,6 @@
 (ns com.brunobonacci.rdt.utils
   (:require [clojure.string :as str]
+            [clojure.pprint :as pp]
             [clojure.java.io :as io]
             [taoensso.nippy :as nippy])
   (:import [java.io PrintWriter OutputStream
@@ -107,10 +108,74 @@
     (str/replace #"_" "-")))
 
 
+(defn ppr-str
+  "pretty print to string"
+  [v]
+  (binding [*print-length* nil
+            *print-level*  nil]
+    ;; pretty-printed representation
+    (with-out-str
+      (pp/pprint v))))
+
+
+
+(defn indent-by
+  [indent s]
+  (-> s
+    (str/replace #"\n" (str "\n" indent))
+    ((partial str indent))))
+
+
+
+(defn display
+  ([v]
+   (display "\t  " v))
+  ([indent v]
+   (indent-by indent (ppr-str v))))
+
+
+
+
 
 (defmacro no-fail
   [& body]
-  `(try ~@body (catch Exception _#)))
+  `(try ~@body (catch Exception x#)))
+
+
+
+(defmacro do-with
+  [value & forms]
+  `(let [~'$it ~value]
+     (no-fail ~@forms)
+     ~'$it))
+
+
+
+(defmacro do-with-exception
+  [value ok fail]
+  `(let [[~'$it ~'$error] (try [(do ~value) nil] (catch Exception x# [nil x#]))]
+     (if ~'$error
+       (do (no-fail ~fail) (throw ~'$error))
+       (do (no-fail ~ok)   ~'$it))))
+
+
+
+(defn sha256
+  "hex encoded sha-256 hash"
+  [^String data]
+  (let [md        (java.security.MessageDigest/getInstance "SHA-256")
+        signature (.digest md (.getBytes data "utf-8"))
+        size      (* 2 (.getDigestLength md))
+        hex-sig   (.toString (BigInteger. 1 signature) 16)
+        padding   (str/join (repeat (- size (count hex-sig)) "0"))]
+    (str padding hex-sig)))
+
+
+
+(defmacro thunk
+  [& body]
+  `(fn [] ~@body))
+
 
 
 
@@ -404,7 +469,7 @@
 
   (def client (client-socket "127.0.0.1" (server :port) serialize deserialize))
 
-  (def resp (client :send []))
+  (def resp (client :send {:foo 32}))
 
   @resp
 

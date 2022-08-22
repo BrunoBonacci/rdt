@@ -10,7 +10,7 @@
        (+ 1 1) => 2))
    :test-info)
   =>
-  {:id "97c0cfc9cda15fee776817c4c649c46daeaa58014e892c913afacbab4ddfc7ff",
+  {:id "534fa59d342bb563d3fa4067d4937092c01bcc6374033705d62e6b162255934d",
    :ns "com.brunobonacci.rdt-test",
    :form '(repl-test (+ 1 1) => 2),
    :name "REPL tests",

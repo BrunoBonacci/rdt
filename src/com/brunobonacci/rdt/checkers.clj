@@ -1,8 +1,7 @@
 (ns com.brunobonacci.rdt.checkers
-  (:require [where.core :refer [where]]
-            [clojure.set :as set]
-            [clojure.pprint :as pp]
-            [clojure.string :as str]))
+  (:require [com.brunobonacci.rdt.utils :as ut]
+            [where.core :refer [where]]
+            [clojure.set :as set]))
 
 
 (def primitive-arrays
@@ -53,38 +52,12 @@
 
 
 
-(defn ppr-str
-  "pretty print to string"
-  [v]
-  (binding [*print-length* nil
-            *print-level*  nil]
-    ;; pretty-printed representation
-    (with-out-str
-      (pp/pprint v))))
-
-
-
-(defn indent-by
-  [indent s]
-  (-> s
-    (str/replace #"\n" (str "\n" indent))
-    ((partial str indent))))
-
-
-
-(defn display
-  ([v]
-   (display "\t  " v))
-  ([indent v]
-   (indent-by indent (ppr-str v))))
-
-
 (defn- match-error
   [rpattern rvalue ppattern pvalue pattern value]
   (throw
     (ex-info
       (format "Unable to match pattern <%s> to value <%s>.\n\n\tExpected:\n%s\n\n\tActual:\n%s\n\n\n"
-        (pr-str pattern) (pr-str value) (display ppattern) (display pvalue))
+        (pr-str pattern) (pr-str value) (ut/display ppattern) (ut/display pvalue))
       {:error-type     ::match-failed
        :pattern        pattern
        :value          value
@@ -158,7 +131,8 @@
   [expected actual*]
   (let [actual (actual*)]
     (or (= expected actual)
-      (throw (ex-info (format "\n\n\tExpected:\n%s\n\n\tActual:\n%s\n\n\n" (display expected) (display actual))
+      (throw (ex-info (format "\n\n\tExpected:\n%s\n\n\tActual:\n%s\n\n\n"
+                        (ut/display expected) (ut/display actual))
                {:expected expected :actual actual})))))
 
 
@@ -169,5 +143,5 @@
   (let [[actualv actuale] (try [(actual*)] (catch Throwable t [nil t]))]
     (or (instance? expected actuale)
       (throw (ex-info (format "\n\n\tExpected:\n%s\n\n\tActual:\n%s\n\n\n"
-                        (display expected) (display (or (type actuale) actualv)))
+                        (ut/display expected) (ut/display (or (type actuale) actualv)))
                {:expected expected :actual (or actuale actualv)})))))

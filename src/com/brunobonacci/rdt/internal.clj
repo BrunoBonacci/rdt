@@ -1,6 +1,7 @@
 (ns com.brunobonacci.rdt.internal
   (:require [where.core :refer [where]]
             [com.brunobonacci.rdt.checkers :as chk]
+            [com.brunobonacci.rdt.utils :as ut]
             [clojure.string :as str]))
 
 
@@ -36,65 +37,6 @@
    :rdt/test-wrapper       (fn [test-info test] test)
    :rdt/expression-wrapper (fn [meta expression] expression)
    :rdt/finalizer-wrapper  (fn [test-info finalizer] finalizer)})
-
-
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;                                                                            ;;
-;;                         ----==| U T I L S |==----                          ;;
-;;                                                                            ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-
-(defmacro no-fail
-  [& body]
-  `(try ~@body (catch Exception x#)))
-
-
-
-(defmacro do-with
-  [value & forms]
-  `(let [~'$it ~value]
-     (no-fail ~@forms)
-     ~'$it))
-
-
-
-(defmacro do-with-exception
-  [value ok fail]
-  `(let [[~'$it ~'$error] (try [(do ~value) nil] (catch Exception x# [nil x#]))]
-     (if ~'$error
-       (do (no-fail ~fail) (throw ~'$error))
-       (do (no-fail ~ok)   ~'$it))))
-
-
-
-(defn sha256
-  "hex encoded sha-256 hash"
-  [^String data]
-  (let [md        (java.security.MessageDigest/getInstance "SHA-256")
-        signature (.digest md (.getBytes data "utf-8"))
-        size      (* 2 (.getDigestLength md))
-        hex-sig   (.toString (BigInteger. 1 signature) 16)
-        padding   (str/join (repeat (- size (count hex-sig)) "0"))]
-    (str padding hex-sig)))
-
-
-
-(defn test-id
-  [form]
-  (-> form
-    (pr-str)
-    (str/replace #"__\d+#" "__#")
-    (sha256)))
-
-
-
-(defmacro thunk
-  [& body]
-  `(fn [] ~@body))
 
 
 
@@ -159,6 +101,14 @@
   (let [[expressions _ & finalizer] (partition-by #{:rdt/finalize :rdt/finalise} forms)]
     [expressions (mapcat identity finalizer)]))
 
+
+
+(defn test-id
+  [form]
+  (-> form
+    (ut/ppr-str)
+    (str/replace #"__\d+#" "__#")
+    (ut/sha256)))
 
 
 (defn extract-test-info
@@ -439,8 +389,8 @@
   [last-sym _test-sym finalizer-expr]
   `(do
      ;; run finalizer if present
-     (no-fail
-       ((-wrap-test-finalizer ~`*runner* ~_test-sym (thunk ~@finalizer-expr))))
+     (ut/no-fail
+       ((-wrap-test-finalizer ~`*runner* ~_test-sym (ut/thunk ~@finalizer-expr))))
      ;; return result
      (if (error? ~last-sym)
        (throw (error ~last-sym))

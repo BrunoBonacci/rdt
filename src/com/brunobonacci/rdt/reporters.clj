@@ -1,6 +1,6 @@
 (ns com.brunobonacci.rdt.reporters
   (:require [clojure.string :as str]
-            [com.brunobonacci.rdt.checkers :as chk]))
+            [com.brunobonacci.rdt.utils :as ut]))
 
 
 (def reporter-factory nil)  ;; for repl development
@@ -70,7 +70,7 @@
         "================================================================================\n\n")
       (:name test)
       (:location test)
-      (str/join "\n" (map chk/display (:form check)))
+      (str/join "\n" (map ut/display (:form check)))
       (ex-message error))))
 
 

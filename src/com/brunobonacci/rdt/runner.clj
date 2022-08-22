@@ -56,7 +56,7 @@
   (let [test-info (test :test-info)
         matches?  (matches-labels? include-labels exclude-labels)]
     (when (matches? test-info)
-      (i/no-fail
+      (ut/no-fail
         (test)))))
 
 
@@ -89,7 +89,7 @@
   [_]
   (fn [{:keys [name]} test]
     (fn []
-      (i/do-with-exception (test)
+      (ut/do-with-exception (test)
         (println "\t- Checking: " name "-> OK")
         (println "\t- Checking: " name "-> FAILED" #_(ex-message $error))))))
 
@@ -108,7 +108,7 @@
           (assoc-in  [*test-execution-id* id :test]       test-info)
           (update-in [*test-execution-id* id :executions] (fnil inc 0)))))
 
-    (i/do-with-exception (test)
+    (ut/do-with-exception (test)
       ;; OK
       (swap! stats
         (fn [stats]
@@ -129,7 +129,7 @@
     (let [line-ok   (if (:checkable? check-meta) :checks-ok :expressions-ok)
           line-fail (if (:checkable? check-meta) :checks-fail :expressions-fail)]
       (fn []
-        (i/do-with-exception (expression)
+        (ut/do-with-exception (expression)
           ;; ok
           (swap! stats
             (fn [stats]
@@ -201,7 +201,7 @@
                 (remove-ns (symbol ns))
                 (require (symbol ns) :reload))))
       ;; return execution summary
-      (i/do-with (get @stats test-execution-id)
+      (ut/do-with (get @stats test-execution-id)
         (swap! stats dissoc test-execution-id)))))
 
 
