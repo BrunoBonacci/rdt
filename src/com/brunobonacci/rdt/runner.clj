@@ -149,6 +149,28 @@
 
 
 
+(defmethod wrapper-factory [:test :rdt/send-test-count]
+  [{:keys [client]}]
+  (fn [{:keys [name]} test]
+    (fn []
+      (ut/do-with-exception (test)
+        @(client :send [:rdt/running-stats :tests-ok 1])
+        @(client :send [:rdt/running-stats :tests-fail 1])))))
+
+
+
+(defmethod wrapper-factory [:expression :rdt/send-checks-count]
+  [{:keys [client]}]
+  (fn [check-meta expression]
+    (fn []
+      (ut/do-with-exception (expression)
+        (when (:checkable? check-meta)
+          @(client :send [:rdt/running-stats :checks-ok   1]))
+        (when (:checkable? check-meta)
+          @(client :send [:rdt/running-stats :checks-fail 1]))))))
+
+
+
 (defn compose-wrappers
   [meta target ws]
   (->> (reverse ws)
@@ -211,28 +233,79 @@
   (let [runner-config (select-keys runner-config
                         [:reporters :include-patterns :exclude-patterns
                          :include-labels :exclude-labels :test-wrappers
-                         :expression-wrappers :finalizer-wrappers])
+                         :expression-wrappers :finalizer-wrappers :server])
         runner-config (assoc runner-config :type :batch-runner)
         java-cmd (ut/java-base-command)
         ;; add main
         java-cmd (conj java-cmd "com.brunobonacci.rdt.runner")
         ;; add args
-        java-cmd (conj java-cmd (pr-str (assoc runner-config :type :batch-runner)))]
+        java-cmd (conj java-cmd (pr-str (assoc runner-config :type :sub-runner)))]
     java-cmd))
+
+
+
+(defn run-tests-parent
+  [runner-config]
+  (let [stats  (atom {})
+        server (ut/server-socket 0
+                 (ut/clojure-data-wrapper
+                   (fn [[r v x :as msg]]
+                     (case r
+                       :rdt/sub-process-ready :ok
+                       :rdt/execution-stats   (do (swap! stats assoc :rdt/execution-stats v) :ok)
+                       :rdt/running-stats     (do (swap! stats update-in [:rdt/execution-stats v] (fnil + 0) x) :ok)
+                       (throw (ex-info "Unrecognized message" {:message msg}))))))
+        _ (println "Starting listener on port:" (server :port))
+        ;; starting server
+        cmd (child-process-cmd (assoc runner-config :server {:port (server :port)}))
+        ;; _ (println cmd)
+
+        _ (println "Starting child process...")
+        _ (flush)
+        ;; start thread to print live stats
+        counter (ut/thread-continuation "live-counter"
+                  (fn [_] (let [stats @stats
+                               test-ok     (get-in stats [:rdt/execution-stats :tests-ok] 0)
+                               test-fail   (get-in stats [:rdt/execution-stats :tests-fail] 0)
+                               checks-ok   (get-in stats [:rdt/execution-stats :checks-ok] 0)
+                               checks-fail (get-in stats [:rdt/execution-stats :checks-fail] 0)]
+                           (printf "\r* Running %,6d tests and %,6d checks with %,6d failures so far...\r"
+                             (+ test-ok test-fail) (+ checks-ok checks-fail) checks-fail)
+                           (flush)))
+                  nil :sleep-time 250)
+        child @(bp/process cmd {:out :string :err :string})]
+    ;; stop counter thread
+    (counter)
+    (println)
+    ;; stop server
+    (server :close)
+
+    ;;(println (-> child :out))
+    (when-not (= 0 (-> child :exit))
+      (println "Subprocess failed. Exit code:" (-> child :exit) )
+      (println (-> child :err))
+      (System/exit (-> child :exit)))
+    (:rdt/execution-stats @stats)))
 
 
 
 (defn run-tests-child
   [runner-config]
-  (let [cmd (child-process-cmd runner-config)
-        ;;_ (println cmd)
-        child (bp/process cmd {:out :string :err :string})]
-    (println "EXIT " (-> @child :exit))
-    #_(println " out " (-> @child :out))
-    #_(println " err " (-> @child :err))
-    {}
-    )
-  )
+  (let [client (ut/client-socket "127.0.0.1" (-> runner-config :server :port) ut/serialize ut/deserialize)
+        _ @(client :send [:rdt/sub-process-ready])
+        runner-config (-> runner-config
+                        (assoc :type :batch-runner)
+                        (update :test-wrappers (fnil conj [])
+                          {:name :rdt/send-test-count   :client client})
+                        (update :expression-wrappers (fnil conj [])
+                          {:name :rdt/send-checks-count :client client}))
+        ;; run the tests
+        execution-stats (run-tests-local runner-config)
+        ]
+    @(client :send [:rdt/execution-stats execution-stats])
+    ;; stop server
+    (client :close)
+    {}))
 
 
 
@@ -243,8 +316,9 @@
         runner-config (compile-wrappers runner-config)
         {:keys [type folders include-patterns exclude-patterns test-execution-id]} runner-config]
     ;; TODO: fix this
-    (if (= :sub-runner type)
-      (run-tests-child runner-config)
+    (case type
+      :parent-runner (run-tests-parent runner-config)
+      :sub-runner    (run-tests-child runner-config)
       (run-tests-local runner-config))))
 
 
