@@ -493,10 +493,11 @@
                        test-fail   (get-in stats [:rdt/execution-stats :tests-fail] 0)
                        checks-ok   (get-in stats [:rdt/execution-stats :checks-ok] 0)
                        checks-fail (get-in stats [:rdt/execution-stats :checks-fail] 0)]
-                   (printf "\r%s [%s] Running %,d tests and %,d checks with %,d failures so far...%s\r"
+                   (printf "\r%s [%s] Running %,d tests and %,d checks with %s failures so far...%s\r"
                      (if (pos? checks-fail) red green)
                      (get rot (mod p (count rot)))
-                     (+ test-ok test-fail) (+ checks-ok checks-fail) checks-fail
+                     (+ test-ok test-fail) (+ checks-ok checks-fail)
+                     (if (pos? checks-fail) (format "%,d" checks-fail) "no")
                      reset)
                    (flush)
                    (inc p)))
