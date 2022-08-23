@@ -211,7 +211,7 @@
                           :checkable? checkable?
                           :defx?  (when (or (def? left) (defn? left)) (second left))
                           :checking-symbol (list `quote (first checker*))
-                          :checking-funciton (second checker*)
+                          ;;:checking-funciton (second checker*) ;; not serializable
                           :expression (cond
                                         (def? left)
                                         (as-tunk (last left))

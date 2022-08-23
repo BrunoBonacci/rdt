@@ -324,6 +324,7 @@
     ;;(println (-> child :out))
     (when-not (= 0 (-> child :exit))
       (println "Subprocess failed. Exit code:" (-> child :exit) )
+      (println (-> child :out))
       (println (-> child :err))
       (System/exit (-> child :exit)))
     (:rdt/execution-stats @stats)))

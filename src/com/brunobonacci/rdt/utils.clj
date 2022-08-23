@@ -1,4 +1,5 @@
 (ns com.brunobonacci.rdt.utils
+  (:refer-clojure :exclude [pr-str])
   (:require [clojure.string :as str]
             [clojure.pprint :as pp]
             [clojure.java.io :as io]
@@ -112,14 +113,13 @@
     (str/replace #"_" "-")))
 
 
+
 (defn pr-str
   "like clojure.core/pr-str but ignores `*print-level*` and `*print-length*`"
   [v]
   (binding [*print-length* nil
             *print-level*  nil]
-    ;; pretty-printed representation
-    (with-out-str
-      (pp/pprint v))))
+    (clojure.core/pr-str v)))
 
 
 
