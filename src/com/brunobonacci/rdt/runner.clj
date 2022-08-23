@@ -285,7 +285,7 @@
         ;; add main
         java-cmd (conj java-cmd "com.brunobonacci.rdt.runner")
         ;; add args
-        java-cmd (conj java-cmd (pr-str (assoc runner-config :type :sub-runner)))]
+        java-cmd (conj java-cmd (ut/pr-str (assoc runner-config :type :sub-runner)))]
     java-cmd))
 
 
@@ -341,10 +341,10 @@
                         (update :expression-wrappers (fnil conj [])
                           {:name :rdt/send-checks-count :client client}))
         ;; run the tests
-        execution-stats (test-runner runner-config)
-        ]
+        execution-stats (test-runner runner-config)]
+    ;; send execution stats to parent process
     @(client :send [:rdt/execution-stats execution-stats])
-    ;; stop server
+    ;; stop client
     (client :close)
     {}))
 

@@ -191,7 +191,7 @@
 
     :else
     (throw
-      (ex-info (format "Unknown or invalid checker %s" (pr-str test))
+      (ex-info (format "Unknown or invalid checker %s" (ut/pr-str test))
         {:form triplet}))))
 
 

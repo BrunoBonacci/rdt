@@ -112,6 +112,17 @@
     (str/replace #"_" "-")))
 
 
+(defn pr-str
+  "like clojure.core/pr-str but ignores `*print-level*` and `*print-length*`"
+  [v]
+  (binding [*print-length* nil
+            *print-level*  nil]
+    ;; pretty-printed representation
+    (with-out-str
+      (pp/pprint v))))
+
+
+
 (defn ppr-str
   "pretty print to string"
   [v]

@@ -57,7 +57,7 @@
   (throw
     (ex-info
       (format "Unable to match pattern <%s> to value <%s>.\n\n\tExpected:\n%s\n\n\tActual:\n%s\n\n\n"
-        (pr-str pattern) (pr-str value) (ut/display ppattern) (ut/display pvalue))
+        (ut/pr-str pattern) (ut/pr-str value) (ut/display ppattern) (ut/display pvalue))
       {:error-type     ::match-failed
        :pattern        pattern
        :value          value
