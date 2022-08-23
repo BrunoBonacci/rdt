@@ -261,22 +261,11 @@
         ;; _ (println cmd)
 
         _ (println "Starting child process...")
-        _ (flush)
         ;; start thread to print live stats
-        counter (ut/thread-continuation "live-counter"
-                  (fn [_] (let [stats @stats
-                               test-ok     (get-in stats [:rdt/execution-stats :tests-ok] 0)
-                               test-fail   (get-in stats [:rdt/execution-stats :tests-fail] 0)
-                               checks-ok   (get-in stats [:rdt/execution-stats :checks-ok] 0)
-                               checks-fail (get-in stats [:rdt/execution-stats :checks-fail] 0)]
-                           (printf "\r* Running %,6d tests and %,6d checks with %,6d failures so far...\r"
-                             (+ test-ok test-fail) (+ checks-ok checks-fail) checks-fail)
-                           (flush)))
-                  nil :sleep-time 250)
+        counter (ut/live-counter stats)
         child @(bp/process cmd {:out :string :err :string})]
     ;; stop counter thread
     (counter)
-    (println)
     ;; stop server
     (server :close)
 

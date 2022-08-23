@@ -476,3 +476,29 @@
   (client :close)
   (server :close)
   )
+
+
+
+(defn live-counter
+  [stats-atom]
+  (let [rot ["-" "\\" "|" "/"]
+        red   (str \u001b "[31m")
+        green (str \u001b "[32m")
+        reset (str \u001b "[0m")
+        _ (flush)
+        stop
+        (thread-continuation "live-counter"
+          (fn [p] (let [stats @stats-atom
+                       test-ok     (get-in stats [:rdt/execution-stats :tests-ok] 0)
+                       test-fail   (get-in stats [:rdt/execution-stats :tests-fail] 0)
+                       checks-ok   (get-in stats [:rdt/execution-stats :checks-ok] 0)
+                       checks-fail (get-in stats [:rdt/execution-stats :checks-fail] 0)]
+                   (printf "\r%s [%s] Running %,d tests and %,d checks with %,d failures so far...%s\r"
+                     (if (pos? checks-fail) red green)
+                     (get rot (mod p (count rot)))
+                     (+ test-ok test-fail) (+ checks-ok checks-fail) checks-fail
+                     reset)
+                   (flush)
+                   (inc p)))
+          0 :sleep-time 125)]
+    (fn [] (stop) (println) (flush))))
