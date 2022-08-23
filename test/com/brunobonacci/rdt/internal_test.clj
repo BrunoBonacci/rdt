@@ -5,7 +5,7 @@
 
 (repl-test "testing repl-test macro: simplest form"
 
-  ((binding [i/*runner* {:type :rdt/test-runner}]
+  ((binding [i/*evaluator* {:type :rdt/test-runner}]
      (repl-test
        (+ 1 1) => 2))
    :test-info)
@@ -23,7 +23,7 @@
 
 (repl-test "testing repl-test macro: adding test name"
 
-  ((binding [i/*runner* {:type :rdt/test-runner}]
+  ((binding [i/*evaluator* {:type :rdt/test-runner}]
      (repl-test "adding test name"
        (+ 1 1) => 2))
    :test-info)
@@ -36,7 +36,7 @@
 
 (repl-test "testing repl-test macro: adding labels"
 
-  ((binding [i/*runner* {:type :rdt/test-runner}]
+  ((binding [i/*evaluator* {:type :rdt/test-runner}]
      (repl-test {:labels [:foo :bar]} "adding labels"
        (+ 1 1) => 2))
    :test-info)

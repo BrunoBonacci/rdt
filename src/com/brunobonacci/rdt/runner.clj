@@ -2,13 +2,56 @@
   (:require [com.brunobonacci.rdt.internal  :as i]
             [com.brunobonacci.rdt.reporters :as rep]
             [com.brunobonacci.rdt.utils     :as ut]
-            [com.brunobonacci.mulog.flakes  :as f]
             [where.core :refer [where]]
             [clojure.java.io :as io]
             [clojure.set :as set]
             [babashka.process :as bp])
   (:gen-class))
 
+
+
+(def ^:const DEFAULT-RUNNER
+  {:type               :batch-runner
+
+   :reporters
+   [:rdt/print-summary
+    :rdt/print-failures]
+
+   :include-patterns   :all
+   :exclude-patterns    nil
+
+   :include-labels     :all
+   :exclude-labels      nil
+
+   ;; wrappers
+   :test-wrappers
+   [:rdt/stats-count-tests   ;; required for reporting
+    ;;:rdt/print-test-name
+    ;;:rdt/print-test-outcome
+    ]
+
+   :expression-wrappers
+   [:rdt/stats-count-checks ;; required for reporting
+    ]
+   :finalizer-wrappers  []
+
+
+   ;; internal - overridden by compile-wrappers
+   :rdt/test-wrapper       (fn [test-info test] test)
+   :rdt/expression-wrapper (fn [meta expression] expression)
+   :rdt/finalizer-wrapper  (fn [test-info finalizer] finalizer)})
+
+
+
+(def ^:dynamic *test-execution-id* nil)
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                                                            ;;
+;;                         ----==| U T I L S |==----                          ;;
+;;                                                                            ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 (defn find-tests-files
@@ -25,16 +68,6 @@
 
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;                                                                            ;;
-;;                       ----==| R U N N E R S |==----                        ;;
-;;                                                                            ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(def ^:dynamic *test-execution-id* nil)
-
-
-
 (defn matches-labels?
   [include-labels exclude-labels]
   (fn [{:keys [labels]}]
@@ -48,16 +81,6 @@
 
       (and (include-labels? labels)
         (not (exclude-labels? labels))))))
-
-
-
-(defmethod i/runner :batch-runner
-  [{:keys [include-labels exclude-labels]} test]
-  (let [test-info (test :test-info)
-        matches?  (matches-labels? include-labels exclude-labels)]
-    (when (matches? test-info)
-      (ut/no-fail
-        (test)))))
 
 
 
@@ -201,25 +224,48 @@
 
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                                                            ;;
+;;                       ----==| R U N N E R S |==----                        ;;
+;;                                                                            ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(def test-runner nil)         ;; for repl dev
+
+
+(defmulti test-runner :type)
+
+
+
+(defmethod i/evaluator :batch-runner
+  [{:keys [include-labels exclude-labels]} test]
+  (let [test-info (test :test-info)
+        matches?  (matches-labels? include-labels exclude-labels)]
+    (when (matches? test-info)
+      (ut/no-fail
+        (test)))))
+
+
+
 (defn- apply-defaults
   [runner-config]
-  (-> (merge i/*runner* {:type :batch-runner} runner-config)
-    (assoc :test-execution-id (f/snowflake))))
+  (-> (merge DEFAULT-RUNNER runner-config)
+    (assoc :test-execution-id (ut/uuid))))
 
 
 
-(defn run-tests-local
+(defmethod test-runner :batch-runner
   [runner-config]
   (let [runner-config (apply-defaults runner-config)
         runner-config (compile-wrappers runner-config)
         {:keys [folders include-patterns exclude-patterns test-execution-id]} runner-config]
 
-    (binding [i/*runner*          runner-config
+    (binding [i/*evaluator*          runner-config
               *test-execution-id* test-execution-id]
       (->> (find-tests-files folders include-patterns exclude-patterns)
         (run! (fn [{:keys [ns]}]
                 (println "  (*) Testing:" ns)
-                #_(load-file absolute)
                 (remove-ns (symbol ns))
                 (require (symbol ns) :reload))))
       ;; return execution summary
@@ -244,23 +290,29 @@
 
 
 
-(defn run-tests-parent
+(defmethod test-runner :parent-runner
   [runner-config]
   (let [stats  (atom {})
         server (ut/server-socket 0
                  (ut/clojure-data-wrapper
                    (fn [[r v x :as msg]]
                      (case r
-                       :rdt/sub-process-ready :ok
-                       :rdt/execution-stats   (do (swap! stats assoc :rdt/execution-stats v) :ok)
-                       :rdt/running-stats     (do (swap! stats update-in [:rdt/execution-stats v] (fnil + 0) x) :ok)
+                       :rdt/sub-process-ready
+                       :ok
+
+                       :rdt/execution-stats
+                       (do (swap! stats assoc :rdt/execution-stats v) :ok)
+
+                       :rdt/running-stats
+                       (do (swap! stats update-in [:rdt/execution-stats v] (fnil + 0) x) :ok)
+                       ;; else
                        (throw (ex-info "Unrecognized message" {:message msg}))))))
-        _ (println "Starting listener on port:" (server :port))
+
         ;; starting server
         cmd (child-process-cmd (assoc runner-config :server {:port (server :port)}))
         ;; _ (println cmd)
 
-        _ (println "Starting child process...")
+        _ (println "Initiating testing process...")
         ;; start thread to print live stats
         counter (ut/live-counter stats)
         child @(bp/process cmd {:out :string :err :string})]
@@ -278,7 +330,7 @@
 
 
 
-(defn run-tests-child
+(defmethod test-runner :sub-runner
   [runner-config]
   (let [client (ut/client-socket "127.0.0.1" (-> runner-config :server :port) ut/serialize ut/deserialize)
         _ @(client :send [:rdt/sub-process-ready])
@@ -289,7 +341,7 @@
                         (update :expression-wrappers (fnil conj [])
                           {:name :rdt/send-checks-count :client client}))
         ;; run the tests
-        execution-stats (run-tests-local runner-config)
+        execution-stats (test-runner runner-config)
         ]
     @(client :send [:rdt/execution-stats execution-stats])
     ;; stop server
@@ -298,17 +350,11 @@
 
 
 
-
 (defn run-tests
   [runner-config]
   (let [runner-config (apply-defaults runner-config)
-        runner-config (compile-wrappers runner-config)
-        {:keys [type folders include-patterns exclude-patterns test-execution-id]} runner-config]
-    ;; TODO: fix this
-    (case type
-      :parent-runner (run-tests-parent runner-config)
-      :sub-runner    (run-tests-child runner-config)
-      (run-tests-local runner-config))))
+        runner-config (compile-wrappers runner-config)]
+    (test-runner runner-config)))
 
 
 
@@ -343,14 +389,11 @@
 
 
 ;;
-;; - TODO: add remote runner
 ;; - TODO: hierarchical tests
 ;; - TODO: externalize defaults
 ;; - TODO: better cmd line handling
 ;; - TODO: documentation
 ;; - TODO: markdown reporter
-;; - TODO: add mulog wrapper
-;; - TODO:
 
 
 (defn -main [& args]

@@ -6,37 +6,8 @@
 
 
 
-(def ^:dynamic *runner*
-  {:type               :inline
-
-   ;; used in  bacth-runner
-   :reporters
-   [:rdt/print-summary
-    :rdt/print-failures]
-
-   :include-patterns   :all
-   :exclude-patterns    nil
-
-   :include-labels     :all
-   :exclude-labels      nil
-
-   ;; wrappers
-   :test-wrappers
-   [:rdt/stats-count-tests   ;; required for reporting
-    ;;:rdt/print-test-name
-    ;;:rdt/print-test-outcome
-    ]
-
-   :expression-wrappers
-   [:rdt/stats-count-checks ;; required for reporting
-    ]
-   :finalizer-wrappers  []
-
-
-   ;; internal - overridden by compile-wrappers
-   :rdt/test-wrapper       (fn [test-info test] test)
-   :rdt/expression-wrapper (fn [meta expression] expression)
-   :rdt/finalizer-wrapper  (fn [test-info finalizer] finalizer)})
+(def ^:dynamic *evaluator*
+  {:type :inline})
 
 
 
@@ -289,7 +260,7 @@
   [expr-sym expressions]
   (->> expressions
     (map (fn [{:keys [expression] :as expr}]
-           (assoc expr :expression (list `-wrap-expression `*runner* expr-sym expression))))))
+           (assoc expr :expression (list `-wrap-expression `*evaluator* expr-sym expression))))))
 
 
 
@@ -390,7 +361,7 @@
   `(do
      ;; run finalizer if present
      (ut/no-fail
-       ((-wrap-test-finalizer ~`*runner* ~_test-sym (ut/thunk ~@finalizer-expr))))
+       ((-wrap-test-finalizer ~`*evaluator* ~_test-sym (ut/thunk ~@finalizer-expr))))
      ;; return result
      (if (error? ~last-sym)
        (throw (error ~last-sym))
@@ -436,7 +407,7 @@
           :test-id   ~(:id test-info)
           :test-info ~test-info))
        ([]
-        ((-wrap-test ~`*runner* (~'this-test :test-info)
+        ((-wrap-test ~`*evaluator* (~'this-test :test-info)
            (fn []
              ~(-generate-let test-info expressions finalizer))))))))
 
@@ -509,26 +480,26 @@
 
 
 
-(def runner nil)  ;; for repl development
+(def evaluator nil)  ;; for repl development
 
 
 
-(defmulti runner (fn [{:keys [type]} test] type))
+(defmulti evaluator (fn [{:keys [type]} test] type))
 
 
 
-(defmethod runner nil
+(defmethod evaluator nil
   [_ test])
 
 
 
-(defmethod runner :inline
+(defmethod evaluator :inline
   [_ test]
   (test))
 
 
 
-(defmethod runner :rdt/test-runner
+(defmethod evaluator :rdt/test-runner
   [_ test]
   test)
 
@@ -536,4 +507,4 @@
 
 (defn eval-test
   [test]
-  (runner *runner* test))
+  (evaluator *evaluator* test))

@@ -9,6 +9,10 @@
            [java.net Socket ServerSocket]))
 
 
+(defn uuid
+  []
+  (str (java.util.UUID/randomUUID)))
+
 
 (defn java-executable []
   (str (System/getProperty "java.home")
