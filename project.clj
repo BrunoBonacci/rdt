@@ -14,7 +14,6 @@
 
   :dependencies [[org.clojure/clojure "1.11.1"]
                  [com.brunobonacci/where "0.5.6"]
-                 [babashka/process "0.1.7"]
                  [com.taoensso/nippy "3.2.0"]]
 
   :global-vars {*warn-on-reflection* true}

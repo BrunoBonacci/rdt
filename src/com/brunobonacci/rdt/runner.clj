@@ -5,7 +5,8 @@
             [where.core :refer [where]]
             [clojure.java.io :as io]
             [clojure.set :as set]
-            [babashka.process :as bp])
+            [clojure.edn :as edn]
+            [clojure.stacktrace :as st])
   (:gen-class))
 
 
@@ -315,7 +316,7 @@
         _ (println "Initiating testing process...")
         ;; start thread to print live stats
         counter (ut/live-counter stats)
-        child @(bp/process cmd {:out :string :err :string})]
+        child (ut/sh cmd)]
     ;; stop counter thread
     (counter)
     ;; stop server
@@ -325,7 +326,6 @@
     (when-not (= 0 (-> child :exit))
       (println "Subprocess failed. Exit code:" (-> child :exit) )
       (println (-> child :out))
-      (println (-> child :err))
       (System/exit (-> child :exit)))
     (:rdt/execution-stats @stats)))
 
@@ -398,11 +398,15 @@
 
 
 (defn -main [& args]
-  (let [config (apply-defaults
-                 (merge {:folders (ut/project-dirs)}
-                   (when (first args) (read-string (first args)))))
-        execution-stats    (run-tests config)
-        reporters          (rep/compile-reporters (:reporters config))
-        {:keys [failures]} (rep/brief-summary execution-stats)]
-    (reporters  execution-stats)
-    (System/exit failures)))
+  (try
+    (let [config (apply-defaults
+                   (merge {:folders (ut/project-dirs)}
+                     (when (first args) (edn/read-string (first args)))))
+          execution-stats    (run-tests config)
+          reporters          (rep/compile-reporters (:reporters config))
+          {:keys [failures]} (rep/brief-summary execution-stats)]
+      (reporters  execution-stats)
+      (System/exit failures))
+    (catch Exception x
+      (println x)
+      (System/exit 1))))

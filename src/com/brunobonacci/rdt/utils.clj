@@ -518,3 +518,32 @@
                    (inc p)))
           0 :sleep-time 125)]
     (fn [] (stop) (println) (flush))))
+
+
+
+
+;; adapted from clojure core
+(defn sh
+  "Like `clojure.java/sh` but `err` and `out` are merged in the same stream
+   and returned as string like in a terminal.
+  `cmd` is an array of strings argument starting from the process name"
+  [cmd]
+  (let [in nil in-enc "UTF-8" out-enc "UTF-8" dir nil
+        ^Process proc (.exec (Runtime/getRuntime)
+                        ^"[Ljava.lang.String;" (into-array String cmd)
+                        ^"[Ljava.lang.String;"(into-array String [])
+                        ^java.io.File (io/as-file dir))]
+    (if in
+      (future
+        (with-open [os (.getOutputStream proc)]
+          (io/copy in os :encoding in-enc)))
+      (.close (.getOutputStream proc)))
+    (with-open [stdout (.getInputStream proc)
+                stderr (.getErrorStream proc)]
+      (let [bout (java.io.StringWriter.)
+            out (future (io/copy stdout bout :encoding out-enc))
+            err (future (io/copy stderr bout :encoding out-enc))
+            exit-code (.waitFor proc)]
+        @out @err
+        (.close bout)
+        {:exit exit-code :out (str bout) }))))
