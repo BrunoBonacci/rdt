@@ -530,9 +530,7 @@
   [cmd]
   (let [in nil in-enc "UTF-8" out-enc "UTF-8" dir nil
         ^Process proc (.exec (Runtime/getRuntime)
-                        ^"[Ljava.lang.String;" (into-array String cmd)
-                        ^"[Ljava.lang.String;"(into-array String [])
-                        ^java.io.File (io/as-file dir))]
+                        ^"[Ljava.lang.String;" (into-array String cmd))]
     (if in
       (future
         (with-open [os (.getOutputStream proc)]
