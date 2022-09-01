@@ -150,6 +150,15 @@
 
 
 
+(defn pr-ex-str
+  [ex]
+  (let [message (ex-message ex)
+        data    (ex-data    ex)
+        cause   (ex-cause   ex)]
+    (str message
+      (if data (str \newline (ppr-str data)) "")
+      (if cause (indent-by "  " (str "\nCaused-by: " (pr-ex-str cause))) ""))))
+
 
 
 (defmacro no-fail

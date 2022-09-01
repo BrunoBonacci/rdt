@@ -5,8 +5,7 @@
             [where.core :refer [where]]
             [clojure.java.io :as io]
             [clojure.set :as set]
-            [clojure.edn :as edn]
-            [clojure.stacktrace :as st])
+            [clojure.edn :as edn])
   (:gen-class))
 
 
@@ -395,6 +394,8 @@
 ;; - TODO: better cmd line handling
 ;; - TODO: documentation
 ;; - TODO: markdown reporter
+;; - TODO: send sub-process console to temp file as well.
+;; - TODO: context info in the exception (like expression and so on)
 
 
 (defn -main [& args]

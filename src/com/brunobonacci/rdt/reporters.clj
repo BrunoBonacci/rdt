@@ -66,12 +66,12 @@
         "      TEST: %s\n"
         "  TEST LOC: %s\n\n"
         "EXPRESSION:\n%s\n\n"
-        "     ERROR:\n\t%s\n\n"
+        "     ERROR:\n%s\n\n"
         "================================================================================\n\n")
       (:name test)
       (:location test)
       (str/join "\n" (map ut/display (:form check)))
-      (ex-message error))))
+      (ut/indent-by "\t" (ut/pr-ex-str error)))))
 
 
 
