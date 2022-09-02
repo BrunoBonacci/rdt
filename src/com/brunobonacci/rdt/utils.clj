@@ -462,7 +462,10 @@
 
 (defn serialize
   [data]
-  (nippy/freeze-to-string data {:compressor nippy/lz4hc-compressor}))
+  ;; transform to string anything can't be serialized.
+  (binding [nippy/*freeze-fallback*
+            (fn [out data] (#'nippy/write-str out (pr-str data)))]
+    (nippy/freeze-to-string data {:compressor nippy/lz4hc-compressor})))
 
 
 
