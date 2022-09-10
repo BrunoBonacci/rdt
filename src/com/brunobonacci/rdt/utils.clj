@@ -151,13 +151,15 @@
 
 
 (defn pr-ex-str
-  [ex]
-  (let [message (ex-message ex)
-        data    (ex-data    ex)
-        cause   (ex-cause   ex)]
-    (str message
-      (if data (str \newline (ppr-str data)) "")
-      (if cause (indent-by "  " (str "\nCaused-by: " (pr-ex-str cause))) ""))))
+  ([ex]
+   (pr-ex-str (if (map? ex) :map :throwable) ex))
+  ([type ex]
+   (let [message (if (= type :throwable) (ex-message ex) (:message ex))
+         data    (if (= type :throwable) (ex-data    ex) (:data ex))
+         cause   (if (= type :throwable) (ex-cause   ex) (:caused-by ex))]
+     (str message
+       (if data (str \newline (ppr-str data)) "")
+       (if cause (indent-by "  " (str "\nCaused-by: " (pr-ex-str cause))) "")))))
 
 
 
@@ -459,19 +461,36 @@
   )
 
 
+(defn Throwable->data
+  "Similar to clojure.core/throwable->map but preserving the Throwable chain"
+  [^Throwable t]
+  (let [stack (.getStackTrace t)]
+    (->>
+      [[:type (symbol (.getName (class t)))]
+       (when-let [msg (.getLocalizedMessage t)]
+         [:message msg])
+       (when-let [ed (ex-data t)]
+         [:data ed])
+       (when (pos? (alength stack))
+         [:at (mapv StackTraceElement->vec stack)])
+       (when-let [cause (ex-cause t)]
+         [:caused-by (Throwable->map cause)])]
+      (remove nil?)
+      (into (array-map)))))
+
 
 (defn serialize
   [data]
   ;; transform to string anything can't be serialized.
-  (binding [nippy/*freeze-fallback*
-            (fn [out data] (#'nippy/write-str out (pr-str data)))]
+  (binding [nippy/*incl-metadata?* false]
     (nippy/freeze-to-string data {:compressor nippy/lz4hc-compressor})))
 
 
 
 (defn deserialize
   [data]
-  (nippy/thaw-from-string data {:compressor nippy/lz4hc-compressor}))
+  (binding [nippy/*incl-metadata?* false]
+    (nippy/thaw-from-string data {:compressor nippy/lz4hc-compressor})))
 
 
 

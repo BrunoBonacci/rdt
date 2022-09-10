@@ -141,7 +141,8 @@
       (swap! stats
         (fn [stats]
           (-> stats
-            (update-in [*test-execution-id* id :errors]     (fnil conj []) [$error nil])
+            (update-in [*test-execution-id* id :errors]     (fnil conj [])
+              [(ut/Throwable->data $error) nil])
             (update-in [*test-execution-id* id :failures]   (fnil inc  0))))))))
 
 
@@ -168,7 +169,8 @@
                   (fnil inc 0))
                 (update-in
                   [*test-execution-id* (:id (:test check-meta)) :errors]
-                  (fnil conj []) [$error check-meta])))))))))
+                  (fnil conj [])
+                  [(ut/Throwable->data $error) check-meta])))))))))
 
 
 
