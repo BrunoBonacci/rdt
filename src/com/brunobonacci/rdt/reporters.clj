@@ -23,7 +23,7 @@
 
 (defn brief-summary
   [execution-stats]
-  (let [tests       (reduce + (map :executions         (vals execution-stats)))
+  (let [tests       (reduce + (map #(:executions % 0)  (vals execution-stats)))
         success     (reduce + (map #(:success % 0)     (vals execution-stats)))
         failures    (reduce + (map #(:failures % 0)    (vals execution-stats)))
         checks-ok   (reduce + (map #(:checks-ok % 0)   (vals execution-stats)))
