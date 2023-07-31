@@ -10,9 +10,11 @@
            [java.net Socket ServerSocket]))
 
 
+
 (defn uuid
   []
   (str (java.util.UUID/randomUUID)))
+
 
 
 (defn java-executable []
@@ -201,7 +203,6 @@
 (defmacro thunk
   [& body]
   `(fn [] ~@body))
-
 
 
 
@@ -461,6 +462,7 @@
   )
 
 
+
 (defn Throwable->data
   "Similar to clojure.core/throwable->map but preserving the Throwable chain"
   [^Throwable t]
@@ -479,10 +481,14 @@
       (into (array-map)))))
 
 
+
 (defn serialize
   [data]
   ;; transform to string anything can't be serialized.
-  (binding [nippy/*incl-metadata?* false]
+  (binding [nippy/*incl-metadata?* false
+            ;; unfreezable data will be written as printed string
+            ;; alternatively use `:write-unfreezable`
+            nippy/*freeze-fallback* (fn [out x] (#'nippy/write-str out (pr-str x)))]
     (nippy/freeze-to-string data {:compressor nippy/lz4hc-compressor})))
 
 
@@ -491,6 +497,19 @@
   [data]
   (binding [nippy/*incl-metadata?* false]
     (nippy/thaw-from-string data {:compressor nippy/lz4hc-compressor})))
+
+
+
+(comment
+  ;; example of unfreezable data
+  (->
+    (fn [x] (+ x 2))
+    ;; {:foo 1 :bar (fn [x] (+ x 2))}
+    ;; {:foo (ex-info "foo" {:data 1 :undata (fn [x] (+ x 2))})}
+    (serialize)
+    (deserialize)
+    )
+  )
 
 
 
@@ -549,7 +568,6 @@
                    (inc p)))
           0 :sleep-time 125)]
     (fn [] (stop) (println) (flush))))
-
 
 
 
