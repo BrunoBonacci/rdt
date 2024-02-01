@@ -257,7 +257,7 @@
               (let [state' (or (no-fail (f state)) state)]
 
                 (when (> sleep-time 0)
-                  (no-fail (Thread/sleep sleep-time)))
+                  (no-fail (Thread/sleep ^long sleep-time)))
 
 
                 ;; if the thread is interrupted then exit

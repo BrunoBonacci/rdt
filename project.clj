@@ -1,9 +1,9 @@
-(defn ver [] "0.5.0-alpha5")
+(defn ver [] "0.5.0-alpha6")
 (defn ts  [] (System/currentTimeMillis))
 (defn jdk [] (clojure.string/replace (str (System/getProperty "java.vm.vendor") "-" (System/getProperty "java.vm.version")) #" " "_"))
 
 (defproject com.brunobonacci/rdt #=(ver)
-  :description "RDT - REPL-Driven tests"
+  :description "RDT - REPL-Driven tests, tests like REPL sessions"
 
   :url "https://github.com/BrunoBonacci/rdt"
 

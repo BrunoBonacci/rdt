@@ -74,12 +74,15 @@
 
 
 
-;; TODO: add regex->regex, array->array, regex->string, fn->val
+
 (defn- partial-matcher
   ([pattern value]
    (partial-matcher pattern value pattern value pattern value))
   ([rpattern rvalue ppattern pvalue pattern value]
    (cond
+     (= pattern value)
+     true
+
      (and (atomic-value? pattern) (atomic-value? value))
      (or (= pattern value)
        (and (number? pattern) (number? value) (== pattern value))
@@ -88,9 +91,12 @@
      (and (sequential? pattern) (primitive-array? value))
      (partial-matcher rpattern rvalue ppattern pvalue pattern (into [] value))
 
+     (and (primitive-array? pattern) (primitive-array? value) (= (type pattern) (type value)))
+     (partial-matcher rpattern rvalue ppattern pvalue (into [] pattern) (into [] value))
+
      (and (sequential? pattern) (sequential? value))
      (->> (zip-lists :rdt/<missing-value> pattern value)
-       (filter (where first not= :rdt/<missing-value>))
+       #_(filter (where first not= :rdt/<missing-value>))
        (map (partial apply partial-matcher rpattern rvalue pattern value))
        (every? true?))
 
@@ -111,6 +117,10 @@
 
      (and (regex? pattern) (string? value))
      (or (boolean (re-matches pattern value))
+       (match-error rpattern rvalue ppattern pvalue pattern value))
+
+     (and (regex? pattern) (regex? value))
+     (or (= (.pattern ^java.util.regex.Pattern pattern) (.pattern ^java.util.regex.Pattern value))
        (match-error rpattern rvalue ppattern pvalue pattern value))
 
      :else

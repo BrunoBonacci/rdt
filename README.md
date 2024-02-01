@@ -232,27 +232,27 @@ The fuzzy match work as follow:
   )
 ```
 
-#### Lists, Vectors and Primitive arrays are matched on the given prefix
+#### Lists, Vectors and Primitive arrays are matched element-by-element
 
 ``` clojure
 (repl-test
   (vector)       => []    ;; true
   (vector 1)     => [1]   ;; true
   (vector 2)     => [1]   ;; false, test fails
-  (vector 1 2)   => [1 3] ;; false, test fails, [1 3] is not a prefix of [1 2]
-  (vector 1 2 3) => [1 2] ;; true, [1 2] is a prefix of [1 2 3]
+  (vector 1 2)   => [1 3] ;; false, test fails
+  (vector 1 2 3) => [1 2] ;; false, test fails
 
   (list)         => '()   ;; true
   (list 1)       => '(1)  ;; true
   (list 2)       => '(1)  ;; false, test fails
-  (list 1 2)     => '(1 3);; false, test fails, (1 3) is not a prefix of (1 2)
-  (list 1 2 3)   => '(1 2);; true, (1 2) is a prefix of (1 2 3)
+  (list 1 2)     => '(1 3);; false, test fails
+  (list 1 2 3)   => '(1 2);; false, test fails
 
   (byte-array 0)       => []    ;; true
   (byte-array [1])     => [1]   ;; true
   (byte-array [2])     => [1]   ;; false, test fails
-  (byte-array [1 2])   => [1 3] ;; false, test fails, [1 3] is not a prefix of [1 2]
-  (byte-array [1 2 3]) => [1 2] ;; true, [1 2] is a prefix of [1 2 3]
+  (byte-array [1 2])   => [1 3] ;; false, test fails
+  (byte-array [1 2 3]) => [1 2] ;; false, test fails
 )
 ```
 
